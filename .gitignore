@@ -1,0 +1,13 @@
+# Ignore meta system files
+~*
+.DS_store
+# Ignore venv and other directories
+venv/
+__pycache__/
+
+PPT 1 NEW/
+MNE_preprocessing_db/
+# Ignore large data files and images
+~$*
+
+

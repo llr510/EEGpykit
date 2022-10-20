@@ -99,7 +99,7 @@ def preprocess_with_faster(raw, events, event_ids, picks, pid, tmin=-0.5, bmax=0
     plt.close('all')
     logdict = {}
     event_repeated = 'merge'
-
+    print(type(raw))
     # Construct epochs. Note that we also include EOG channels.
     epochs = mne.Epochs(raw, events, event_ids, tmin, tmax, baseline=None,
                         preload=True, picks=picks, event_repeated=event_repeated, on_missing='warn')
@@ -129,11 +129,14 @@ def preprocess_with_faster(raw, events, event_ids, picks, pid, tmin=-0.5, bmax=0
     if len(epochs.info['bads']) > 0:
         epochs.interpolate_bads()
 
-    print("Step 5: Find and interpolate dead channels that FASTER misses")
-    epochs.set_eeg_reference('average')
-    epochs, bads = find_dead_channels(epochs, plot=plotting)
-    logdict['Extra Interpolated Channels'] = bads
-    epochs.set_eeg_reference(['Cz'])
+    try:
+        print("Step 5: Find and interpolate dead channels that FASTER misses")
+        epochs.set_eeg_reference('average')
+        epochs, bads = find_dead_channels(epochs, plot=plotting)
+        logdict['Extra Interpolated Channels'] = bads
+        epochs.set_eeg_reference(['Cz'])
+    except ValueError:
+        print("Couldn't run psd_array_welch. Debugging needed.")
 
     # Step 2: mark bad epochs
     print('# Step 2: mark bad epochs')
@@ -280,21 +283,28 @@ def find_dead_channels(epochs, plot, deviations=3):
 
 
 class EEG_Participant:
-    def __init__(self, pid, ppt_num, data_path, ref_channel, EOG_channel, event_ids, montage):
+    """Defines participant object that contains all the information needed for preprocessing an individual's data."""
+    def __init__(self, pid='', ppt_num=None, data_path='None', ref_channel=None, EOG_channel=None, event_ids=None,
+                 montage=None, status=None):
+    # def __init__(self, pid, ppt_num, data_path, ref_channel, EOG_channel, event_ids,
+    #              montage, status):
+        output_path = Path(
+            '/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/MNE_preprocessing_db')
+        self.status = status
         self.pid = pid
-        self.raw_fname = Path(data_path, self.pid).with_suffix('.cnt')
-        self.picks = None
-        self.events = None
-        self.RAW = None
-        self.epochs = None
+        self.raw_fname = Path(data_path, pid).with_suffix('.cnt')
+        self.out_fname = Path(output_path, pid).with_suffix('.pickle')
         self.ppt_num = ppt_num
         self.data_path = data_path
         self.montage = montage
         self.EOG_channel = EOG_channel
         self.ref_channel = ref_channel
         self.event_ids = event_ids
-        self.report = mne.Report(title=self.pid)
-        self.filename = Path(output_path, self.pid).with_suffix('.pickle')
+        self.report = mne.Report(title=pid)
+        self.picks = None
+        self.events = None
+        self.RAW = None
+        self.epochs = None
         self.evoked_before = None
         self.evoked_after = None
 
@@ -310,50 +320,56 @@ class EEG_Participant:
         )
 
     def preprocess_RAW(self, tmin, bmax, tmax, plotting=True):
-        self.epochs, \
-        self.evoked_before, \
-        self.evoked_after, \
-        logdict, \
-        self.report \
-            = preprocess_with_faster(self.RAW,
-                                     self.events,
-                                     self.event_ids,
-                                     self.picks,
-                                     self.pid,
-                                     tmin=tmin,
-                                     bmax=bmax,
-                                     tmax=tmax,
-                                     plotting=plotting,
-                                     report=self.report)
+        # Todo remove everything that doesn't have the RAW tag instead
+        for element in ['Time course (EEG)', 'Topographies', 'Global field power']:
+            self.report.remove(title=element, tags=('evoked',), remove_all=True)
+        for element in ['Info', 'ERP image (EEG)', 'Drop log', 'PSD']:
+            self.report.remove(title=element, tags=('epochs',), remove_all=True)
 
-    def replace_events(self, event_file):
+        self.epochs, self.evoked_before, self.evoked_after, _, self.report = preprocess_with_faster(self.RAW,
+                                                                                                    self.events,
+                                                                                                    self.event_ids,
+                                                                                                    self.picks,
+                                                                                                    self.pid,
+                                                                                                    tmin=tmin,
+                                                                                                    bmax=bmax,
+                                                                                                    tmax=tmax,
+                                                                                                    plotting=plotting,
+                                                                                                    report=self.report)
+
+    def replace_events(self, event_file, keep_original_events=False):
+        """Adds new annotations and events to RAW data"""
         df = pd.read_csv(event_file, names=['label', 'start', 'end'])
         my_annot = mne.Annotations(onset=df['start'], duration=df['end'], description=df['label'])
         self.RAW.set_annotations(my_annot)
-        annot_from_events = mne.annotations_from_events(events=self.events,
-                                                        event_desc={val: key for key, val in self.event_ids.items()},
-                                                        sfreq=self.RAW.info['sfreq'],
-                                                        orig_time=self.RAW.info['meas_date'])
-        self.RAW.annotations.__add__(annot_from_events)
+        if keep_original_events:
+            annot_from_events = mne.annotations_from_events(events=self.events,
+                                                            event_desc={val: key for key, val in
+                                                                        self.event_ids.items()},
+                                                            sfreq=self.RAW.info['sfreq'],
+                                                            orig_time=self.RAW.info['meas_date'])
+            self.RAW.annotations.__add__(annot_from_events)
         self.events, self.event_ids = mne.events_from_annotations(self.RAW)
 
     def save(self, make_report=True):
-        with open(self.filename, 'wb') as f:
+        with open(self.out_fname, 'wb') as f:
             pickle.dump(self, f)
         if make_report:
             self.save_report()
 
     @classmethod
-    def load(cls, filename):
+    def load(cls, filename, keep_RAW=True):
         with open(filename, 'rb') as f:
             print('loading from pickle')
             return pickle.load(f)
 
     def save_report(self):
-        self.report.save(self.filename.with_suffix('.html'), overwrite=True, open_browser=False)
+        self.report.save(self.out_fname.with_suffix('.html'), overwrite=True, open_browser=False)
 
 
 class EEG_Experiment:
+    """Class for loading and preprocessing multiple data files at once. Stores them as EEG_Participant objects."""
+
     def __init__(self, exp_filepath, output_path, event_ids, montage):
         self.exp_file = pd.read_csv(exp_filepath)
         self.output_path = output_path
@@ -368,19 +384,27 @@ class EEG_Experiment:
                                                      ref_channel=row.ref_channel,
                                                      EOG_channel=row.EOG_channel,
                                                      event_ids=self.event_ids,
-                                                     montage=self.montage))
+                                                     montage=self.montage,
+                                                     status=row.status))
 
     def read_RAWs(self, sfreq=200, hfreq=40, lfreq=0.5, plotting=False):
         for participant in self.participants:
+            if participant.status == 'raw_filtered':
+                continue
             participant.read_RAW(sfreq, hfreq, lfreq, plotting)
             participant.save(make_report=True)
             # Clear RAW from memory otherwise we might run out if we load a lot of participants
             del participant.RAW
 
-    def preprocess_RAWs(self, tmin, bmax, tmax, plotting=False):
+    def preprocess_RAWs(self, tmin, bmax, tmax, additional_events_fname=None, plotting=False):
         for participant in self.participants:
-            participant.load(participant.filename)
-            participant.preprocess_RAW(self, tmin, bmax, tmax, plotting)
+            if participant.status != 'raw_filtered':
+                continue
+            participant = participant.load(participant.out_fname)
+
+            if additional_events_fname is not None:
+                participant.replace_events(Path(participant.data_path, additional_events_fname).with_suffix('.csv'))
+            participant.preprocess_RAW(tmin, bmax, tmax, plotting)
             participant.save()
             # Clear RAW from memory otherwise we might run out if we load a lot of participants
             del participant.RAW
@@ -390,40 +414,16 @@ if '__main__' in __name__:
     output_path = Path(
         '/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/MNE_preprocessing_db')
     pid = '20220318_1418PPT1NEW'
-    data_path = Path('PPT 1 NEW')
     ANTwave64 = mne.channels.read_custom_montage(fname=Path('montages', 'waveguard64_rescaled_small.xyz'),
                                                  coord_frame="unknown")
-    event_ids = {'T1/object': 11,
-                 'T1/scene': 12,
-                 'T2/object': 21,
-                 'T2/scene': 22, }
+    event_ids = {'T1/S': 11,
+                 'T1/NS': 12,
+                 'T2/S': 21,
+                 'T2/NS': 22, }
 
-    # p1 = EEG_Participant(pid=pid,
-    #                      ppt_num=1,
-    #                      data_path=data_path,
-    #                      ref_channel='Cz',
-    #                      EOG_channel='VEOG',
-    #                      event_ids={'T1/object': 11,
-    #                                 'T1/scene': 12,
-    #                                 'T2/object': 21,
-    #                                 'T2/scene': 22,
-    #                                 # 'trial_start': 96,
-    #                                 # 'trial_end': 97,
-    #                                 # end: 98
-    #                                 # start: 99
-    #                                 },
-    #                      montage=ANTwave64)
-    #
-    # # p1.read_RAW(plotting=True)
-    # # p1.save()
-    #
-    # p1 = p1.load(Path(output_path, '20220318_1418PPT1NEW.pickle'))
-    # # p1.replace_events(Path(data_path, 'markers_v2.csv'))
-    # p1.preprocess_RAW(tmin=-0.2, bmax=0, tmax=0.8, plotting=False)
-    # p1.save()
-    # p1.report.save(Path(output_path, f'{p1.pid}_report.html'), overwrite=True, open_browser=False)
     study = EEG_Experiment(exp_filepath='experiment_participant_list.csv',
                            output_path=output_path,
                            event_ids=event_ids,
                            montage=ANTwave64)
-    study.read_RAWs()
+    # study.read_RAWs()
+    study.preprocess_RAWs(tmin=-0.2, bmax=0, tmax=0.8, additional_events_fname='new_markers', plotting=False)

@@ -1,7 +1,5 @@
 from pathlib import Path
-
 import mne
-
 from preprocesser import EEG_Participant, EEG_Experiment
 import matplotlib
 
@@ -20,17 +18,17 @@ print("Using:", matplotlib.get_backend())
 output_path = Path(
     '/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/MNE_preprocessing_db')
 
-
 participants = output_path.glob('*.pickle')
-ppts = []
+participants = list(participants)
+# participants[:3]
+ppts = {'T2': [], 'T1': [], 'T2/attentional_blink': [], 'T2/correct': []}
 for pth in participants:
-    participant = EEG_Participant().load(Path(output_path, '20220131_1255ppt1.pickle'))
+    participant = EEG_Participant().load(pth)
+    for events_group in ppts.keys():
+        epochs = participant.get_epochs(by_events=events_group)
+        ppts[events_group].append(epochs.average())
 
-    ppts.append(participant['T2'].epochs.average())
-
-mne.grand_average(ppts).plot()
-# participant.epochs['T1'].average().plot()
-# participant.epochs['T2/NS/scene'].average().plot()
-# participant.epochs['T2/NS/dot'].average().plot()
-# participant.epochs['T2/S/scene'].average().plot()
-# participant.epochs['T2/S/dot'].average().plot()
+ppts = {events: mne.grand_average(evokeds) for events, evokeds in ppts.items()}
+for events, evoked in ppts.items():
+    events = events.replace('/', '-')
+    evoked.plot_joint(title=events, show=False).savefig(Path(f'joint_{events}.jpg'))

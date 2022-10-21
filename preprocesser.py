@@ -293,7 +293,7 @@ class EEG_Participant:
         self.status = status
         self.pid = pid
         self.raw_fname = Path(data_path, pid).with_suffix('.cnt')
-        self.out_fname = Path(output_path, pid).with_suffix('.pickle')
+        self.filename = Path(output_path, pid).with_suffix('.pickle')
         self.ppt_num = ppt_num
         self.data_path = data_path
         self.montage = montage
@@ -352,19 +352,22 @@ class EEG_Participant:
         self.events, self.event_ids = mne.events_from_annotations(self.RAW)
 
     def save(self, make_report=True):
-        with open(self.out_fname, 'wb') as f:
+        with open(self.filename, 'wb') as f:
             pickle.dump(self, f)
         if make_report:
             self.save_report()
 
     @classmethod
-    def load(cls, filename, keep_RAW=True):
+    def load(cls, filename):
         with open(filename, 'rb') as f:
             print('loading from pickle')
             return pickle.load(f)
 
+    def get_epochs(self, by_events=''):
+        return self.epochs[by_events]
+
     def save_report(self):
-        self.report.save(self.out_fname.with_suffix('.html'), overwrite=True, open_browser=False)
+        self.report.save(self.filename.with_suffix('.html'), overwrite=True, open_browser=False)
 
 
 class EEG_Experiment:
@@ -400,7 +403,7 @@ class EEG_Experiment:
         for participant in self.participants:
             if participant.status != 'raw_filtered':
                 continue
-            participant = participant.load(participant.out_fname)
+            participant = participant.load(participant.filename)
 
             if additional_events_fname is not None:
                 participant.replace_events(Path(participant.data_path, additional_events_fname).with_suffix('.csv'))

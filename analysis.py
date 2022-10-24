@@ -16,19 +16,28 @@ for gui in gui_env:
 print("Using:", matplotlib.get_backend())
 
 output_path = Path(
-    '/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/MNE_preprocessing_db')
+    '/Volumes/psgroups-1/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/MNE_preprocessing_db')
 
 participants = output_path.glob('*.pickle')
 participants = list(participants)
-# participants[:3]
-ppts = {'T2': [], 'T1': [], 'T2/attentional_blink': [], 'T2/correct': []}
-for pth in participants:
-    participant = EEG_Participant().load(pth)
-    for events_group in ppts.keys():
-        epochs = participant.get_epochs(by_events=events_group)
-        ppts[events_group].append(epochs.average())
 
-ppts = {events: mne.grand_average(evokeds) for events, evokeds in ppts.items()}
-for events, evoked in ppts.items():
+event_dict = {'T2': [],
+              'T1': [],
+              'T2/scene/attentional_blink': [],
+              'T2/scene/correct': [],
+              'T2/scene/incorrect': [],
+              'dot/NS-S': [],
+              'dot/S-NS': [],
+              'scene/NS-S': [],
+              'scene/S-NS': []}
+
+for pth in participants:
+    participant = EEG_Participant.load(pth)
+    for events_group in event_dict.keys():
+        epochs = participant.get_epochs(by_events=events_group)
+        event_dict[events_group].append(epochs.average())
+
+event_dict = {events: mne.grand_average(evokeds) for events, evokeds in event_dict.items()}
+for events, evoked in event_dict.items():
     events = events.replace('/', '-')
-    evoked.plot_joint(title=events, show=False).savefig(Path(f'joint_{events}.jpg'))
+    evoked.plot_joint(title=events, show=False).savefig(Path('figures', f'joint_{events}.jpg'))

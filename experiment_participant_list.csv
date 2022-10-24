@@ -6,10 +6,12 @@ ppt_num,data_path,pid,ref_channel,EOG_channel,status
 6,/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 6 DATA,20220209_1456PPT6,Cz,HEOG,raw_filtered
 7,/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 7 DATA,20220211_0846PPT7,Cz,VEOG,raw_filtered
 8,/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 8 DATA,20220218_0920PPT8,Cz,HEOG,raw_filtered
+9,/Volumes/psgroups-1/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 9 DATA,20220218_1242PPT9,Cz,HEOG,raw_filtered
 1,/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 1 OLD,20220131_1255ppt1,Cz,VEOG,raw_filtered
 11,/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 11 DATA,20220225_1019PPT11,Cz,HEOG,raw_filtered
 12,/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 12 DATA,20220302_0952PPT12,Cz,HEOG,raw_filtered
 13,/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 13 DATA,20220310_0848PPT13,Cz,VEOG,raw_filtered
+14,/Volumes/psgroups-1/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 14 DATA,20220311_0900PPT14,Cz,VEOG,raw_filtered
 15,/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 15 DATA,20220311_1132PPT15,Cz,VEOG,raw_filtered
 16,/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 16 DATA,20220311_1445PPT16,Cz,VEOG,raw_filtered
 17,/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 17 DATA,20220314_0847PPT17,Cz,VEOG,raw_filtered

@@ -28,8 +28,24 @@ from typing import Union
 
 def resample_and_bandpass_raw(raw_fname, ref_channel, eog_channel, montage,
                               sfreq=200, hfreq=40, lfreq=0.5, plotting=False, report=None):
+    """
+
+    :param raw_fname: str or PosixPath
+    :param ref_channel: str
+    :param eog_channel:
+    :param montage: DigMontage
+    :param sfreq: int
+    :param hfreq: float
+    :param lfreq: float
+    :param plotting: bool
+    :param report:
+    :return: RawANTCNT,
+    """
     event_fname = Path(raw_fname).with_suffix('.trg')
-    raw = read_raw_antcnt(str(raw_fname), preload=True, eog=[eog_channel])
+    if raw_fname.suffix != '.cnt':
+        raw = io.read_raw(str(raw_fname), preload=True, eog=[eog_channel])
+    else:
+        raw = read_raw_antcnt(str(raw_fname), preload=True, eog=[eog_channel])
     events = read_events_trg(event_fname)
 
     raw.info['bads'] = []  # bads are going to be detected automatically
@@ -340,6 +356,7 @@ class EEG_Participant:
                                                                                                     tmax=tmax,
                                                                                                     plotting=plotting,
                                                                                                     report=self.report)
+        self.status = 'raw_filtered'
 
     def replace_events(self, event_file, keep_original_events=False):
         """
@@ -411,6 +428,12 @@ class EEG_Experiment:
     Class for loading and preprocessing multiple data files at once. Stores them as EEG_Participant objects.
     """
     def __init__(self, exp_filepath, output_path, event_ids, montage):
+        """
+        :type exp_filepath: str or PosixPath
+        :type output_path: str or PosixPath
+        :type event_ids: dict
+        :type montage: DigMontage
+        """
         self.exp_file = pd.read_csv(exp_filepath)
         self.output_path = output_path
         self.event_ids = event_ids
@@ -424,6 +447,7 @@ class EEG_Experiment:
                                 status=row.status, output_path=output_path))
 
     def read_RAWs(self, sfreq=200, hfreq=40, lfreq=0.5, plotting=False, skip_existing=True):
+
         for participant in self.participants:
             if participant.status == 'raw_filtered' and skip_existing is True:
                 continue
@@ -435,11 +459,16 @@ class EEG_Experiment:
     def preprocess_RAWs(self, tmin, bmax, tmax, additional_events_fname=None, plotting=False, skip_existing=True):
         for participant in self.participants:
             if participant.status != 'raw_filtered':
+                print(f'{participant.pid} raw data not filtered. Skipping')
                 continue
-
-            participant = participant.load(participant.filename)
+            new_data_path = participant.data_path
+            new_filename = Path(self.output_path, participant.pid).with_suffix('.pickle')
+            participant = participant.load(new_filename)
+            participant.data_path = new_data_path
+            participant.filename = new_filename
 
             if participant.epochs is not None and skip_existing is True:
+                print(f'{participant.pid} epoch data already exists. Skipping')
                 continue
 
             if additional_events_fname is not None:
@@ -452,7 +481,10 @@ class EEG_Experiment:
 
 if '__main__' in __name__:
     output_path = Path(
-        '/Volumes/psgroups-1/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/MNE_preprocessing_db')
+        '/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL '
+        'BLINK/MNE_preprocessing_db')
+    assert output_path.exists()
+
     ANTwave64 = mne.channels.read_custom_montage(fname=Path('montages', 'waveguard64_rescaled_small.xyz'),
                                                  coord_frame="unknown")
     # The basic trigger values and their labels in each recording. 
@@ -465,5 +497,7 @@ if '__main__' in __name__:
                            output_path=output_path,
                            event_ids=event_ids,
                            montage=ANTwave64)
-    # study.read_RAWs()
-    study.preprocess_RAWs(tmin=-0.2, bmax=0, tmax=0.8, additional_events_fname='new_markers', plotting=False)
+
+    study.read_RAWs(skip_existing=True)
+    study.preprocess_RAWs(tmin=-0.2, bmax=0, tmax=0.8, additional_events_fname='new_markers', plotting=False,
+                          skip_existing=True)

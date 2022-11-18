@@ -10,5 +10,5 @@ MNE_preprocessing_db/
 # Ignore large data files and images
 ~$*
 *.idea
-
-
+*.jpg
+*.xlsx

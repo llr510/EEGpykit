@@ -321,8 +321,11 @@ def _strip_to_integer(trigger):
 
 
 def read_events_trg(fname):
+    """Reads ANT's trg file format"""
     data = np.loadtxt(fname, skiprows=2)
+    # Convert from float seconds to integer milliseconds
     data[:, 0] = data[:, 0] * 1000
+    # Add trigger duration col (our triggers have no duration, so set to 0)
     data[:, 1] = 0
     data = data.astype(int)
     return data

@@ -19,3 +19,5 @@ ppt_num,data_path,pid,EOG_channel,status,ref_channel
 22,/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 22 DATA,20220318_1142ppt22,VEOG,raw_filtered,Cz
 23,/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 23 SCENES,20221103_1247_PPT23_scenes,VEOG,raw_filtered,Cz
 24,/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 24 SCENES,20221110_0937PPT24_scenes,VEOG,raw_filtered,Cz
+25,/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 25 SCENES,20221111_1152PPT25_scenes,VEOG,raw_filtered,Cz
+26,/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/DATA/PPT 26 SCENES,20221122_1258_PPT26_scenes,VEOG,raw_filtered,Cz

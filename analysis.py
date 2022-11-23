@@ -1,3 +1,4 @@
+import pickle
 from pathlib import Path
 import mne
 from preprocesser import EEG_Participant
@@ -23,9 +24,19 @@ class BaseAnalysis:
         self.selected_events = None
         self.evoked = None
         self.epochs = None
+        self.window = None
+        self.channels = None
 
-    def select_events(self, events):
+    def select_events(self, events, drop_unselected=False):
         self.selected_events = events
+        if drop_unselected:
+            self.epochs = self.epochs[self.selected_events]
+
+    def select_window(self):
+        pass
+
+    def select_channels(self):
+        pass
 
     def epochs_to_evoked(self):
         self.evoked = self.epochs[self.selected_events].average()
@@ -54,11 +65,31 @@ class BaseAnalysis:
             if save:
                 anim.save(Path(self.analysis_db, 'figs', 'topo', f'topo_{title}.gif'))
 
+    # def save(self, filename):
+    #     """Save object as .pickle."""
+    #
+    #     with open(filename, 'wb') as f:
+    #         pickle.dump(self, f)
+    #
+    # @classmethod
+    # def load(cls, filename):
+    #     """Load object.
+    #
+    #     Parameters
+    #     ----------
+    #     filename : str or PosixPath
+    #     """
+    #     with open(filename, 'rb') as f:
+    #         print(f'loading {filename} from pickle...')
+    #         return pickle.load(f)
+
 
 class Group(BaseAnalysis):
     def __init__(self, analysis_db, data_db, individual_list):
         super().__init__(analysis_db, data_db)
         self.individual_list = individual_list
+        self.evokeds = None
+        self.grand_evoked = None
 
     def load_epochs(self):
         epoch_objects = []
@@ -76,6 +107,14 @@ class Group(BaseAnalysis):
         self.epochs = mne.epochs.concatenate_epochs(epochs_list=epoch_objects, add_offset=True)
         del epoch_objects, data
 
+    def individuals_to_evokeds(self):
+        self.evokeds = []
+        for individual in self.individual_list:
+            self.evokeds.append = (self.epochs[individual].average())
+
+    def evokeds_to_grand_evoked(self):
+        self.grand_evoked = mne.grand_average(self.evokeds)
+
 
 class Individual(BaseAnalysis):
     def __init__(self, analysis_db, data_db, filename):
@@ -88,19 +127,52 @@ class Individual(BaseAnalysis):
 
 
 wd = Path(
-    '/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK')
+    '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK')
 data_db = Path(wd, 'MNE_preprocessing_db')
 analysis_db = Path(wd, 'MNE_analysis_db')
 
-individual_list = [Path(data_db, pickle) for pickle in ['20221110_0937PPT24_scenes.pickle',
-                                                        '20221103_1247_PPT23_scenes.pickle',
-                                                        '20220131_1255ppt1.pickle',
-                                                        '20220202_0830PPT2.pickle',
-                                                        '20220203_1225PPT3.pickle']]
+individual_list = [Path(data_db, pickle).with_suffix('.pickle') for pickle in [
+    # '20220131_1255ppt1',
+    # '20220318_1418PPT1NEW',
+    # '20220202_0830PPT2',
+    # '20220203_1225PPT3',
+    # '20220204_0855PPT4',
+    # '20220209_1456PPT6',
+    # '20220211_0846PPT7',
+    # '20220218_0920PPT8',
+    # '20220218_1242PPT9',
+    # '20220225_1019PPT11',
+    # '20220302_0952PPT12',
+    # '20220310_0848PPT13',
+    # '20220311_1132PPT15',
+    # '20220311_1445PPT16',
+    # '20220314_0847PPT17',
+    # '20220316_1141PPT19',
+    # '20220318_1142ppt22',
+    '20221110_0937PPT24_scenes',
+    '20221103_1247_PPT23_scenes',
+    '20221111_1152PPT25_scenes',
+    '20221122_1258_PPT26_scenes',
+]]
 
 analysis = Group(analysis_db=analysis_db, data_db=data_db, individual_list=individual_list)
+# analysis.save(Path(analysis_db, 'group_analysis.pickle'))
+
 # analysis = Individual(analysis_db=analysis_db, data_db=data_db, filename='20221110_0937PPT24_scenes.pickle')
-analysis.select_events('T2/correct')
 analysis.load_epochs()
-analysis.epochs_to_evoked()
-analysis.plot_heatmaps(title='test')
+quit()
+# analysis = Group.load(Path(analysis_db, 'group_analysis.pickle'))
+for block in ['S-S', 'NS-NS', 'S-NS', 'NS-S']:
+    for T in ['T1', 'T2']:
+        if T == 'T1':
+            condition = f'scene/{block}/{T}/correct'
+            analysis.select_events(condition)
+            analysis.epochs_to_evoked()
+            analysis.plot_heatmaps(title=condition.replace('/', '_'))
+        else:
+            for lag in ['lag1', 'lag3']:
+                for blink in ['correct', 'attentional_blink']:
+                    condition = f'scene/{block}/{T}/{lag}/{blink}'
+                    analysis.select_events(condition)
+                    analysis.epochs_to_evoked()
+                    analysis.plot_heatmaps(title=condition.replace('/', '_'))

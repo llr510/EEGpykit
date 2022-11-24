@@ -12,3 +12,4 @@ MNE_preprocessing_db/
 *.idea
 *.jpg
 *.xlsx
+*.csv

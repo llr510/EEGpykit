@@ -7,9 +7,11 @@ __pycache__/
 
 PPT 1 NEW/
 MNE_preprocessing_db/
+figures/
 # Ignore large data files and images
 ~$*
 *.idea
 *.jpg
 *.xlsx
 *.csv
+*.png

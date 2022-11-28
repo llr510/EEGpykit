@@ -450,6 +450,10 @@ class EEG_Experiment:
 
         for participant in self.participants:
             if participant.status == 'raw_filtered' and skip_existing is True:
+                print(f'{participant.pid} raw data already filtered. Skipping')
+                continue
+            elif participant.status == 'epoched' and skip_existing is True:
+                print(f'{participant.pid} raw data already filtered. Skipping')
                 continue
             participant.read_RAW(sfreq, hfreq, lfreq, plotting)
             participant.save(make_report=True)
@@ -458,7 +462,7 @@ class EEG_Experiment:
 
     def preprocess_RAWs(self, tmin, bmax, tmax, additional_events_fname=None, plotting=False, skip_existing=True):
         for participant in self.participants:
-            if participant.status != 'raw_filtered':
+            if participant.status == '':
                 print(f'{participant.pid} raw data not filtered. Skipping')
                 continue
             new_data_path = participant.data_path
@@ -481,7 +485,7 @@ class EEG_Experiment:
 
 if '__main__' in __name__:
     output_path = Path(
-        '/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL '
+        '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL '
         'BLINK/MNE_preprocessing_db')
     assert output_path.exists()
 

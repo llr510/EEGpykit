@@ -502,6 +502,6 @@ if '__main__' in __name__:
                            event_ids=event_ids,
                            montage=ANTwave64)
 
-    study.read_RAWs(skip_existing=True)
+    # study.read_RAWs(skip_existing=True)
     study.preprocess_RAWs(tmin=-0.2, bmax=0, tmax=0.8, additional_events_fname='new_markers', plotting=False,
-                          skip_existing=True)
+                          skip_existing=False)

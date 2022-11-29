@@ -68,6 +68,9 @@ class BaseAnalysis:
             if save:
                 anim.save(Path(self.analysis_db, 'figs', 'topo', f'topo_{title}.gif'))
 
+    def update_events(self):
+        self.epochs.events
+
 
 class Group(BaseAnalysis):
     def __init__(self, analysis_db, data_db, individual_list):
@@ -200,7 +203,7 @@ class Statistics:
             self.data.window_peak(tmin=component.start, tmax=component.end)
             return data.peaks
         elif type == 'grand':
-            self.data.evokeds_to_grand_evoked(tmin=component.start, tmax=component.end)
+            self.data.evokeds_to_grand_evoked(tmin=0, tmax=None)
             return data.grand_evoked
 
     def compute(self, func=stats.ttest_rel, type='mean', plotting=False):
@@ -231,10 +234,12 @@ class Statistics:
 
                     self.dict_list.append(row)
                     if plotting:
-                        title = f"{comparison[0]}vs{comparison[1]}_{combination.replace('/','_')}_{component.name}"
-                        fig = mne.viz.plot_compare_evokeds(grand, title=title, show=False)[0]
-                        fig.savefig(fname=title)
-                        fig.close()
+                        title = f"{comparison[0]}vs{comparison[1]}_{combination.replace('/', '_')}_{component.name}"
+                        fig = mne.viz.plot_compare_evokeds(grand, title=title, show=False, show_sensors=True)[0]
+                        fig.axes[0].axvspan(component.start, component.end, facecolor='r', alpha=0.3,
+                                            label=component.name)
+                        fig.savefig(fname=Path('figures', 'windows', title))
+                        plt.close()
 
     def save_output(self, filename):
         df = pd.DataFrame(self.dict_list)
@@ -288,6 +293,7 @@ class Statistics:
 if '__main__' in __name__:
     wd = Path(
         '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK')
+    assert wd.exists()
     data_db = Path(wd, 'MNE_preprocessing_db')
     analysis_db = Path(wd, 'MNE_analysis_db')
 
@@ -321,6 +327,7 @@ if '__main__' in __name__:
 
     data = Group(analysis_db=analysis_db, data_db=data_db, individual_list=individual_list)
     data.load_epochs()
+    data.update_events()
 
     # Comparisons 1 & 2
     event_conditions = {
@@ -333,7 +340,7 @@ if '__main__' in __name__:
     components = [P3a, P3b]
 
     analysis = Statistics(data=data, main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    analysis.compute(analysis.bootstrap_paired_t_test, type='mean', plotting=True)
+    analysis.compute(analysis.bootstrap_paired_t_test, type='mean', plotting=False)
 
     # Comparisons 3
     event_conditions = {
@@ -342,10 +349,10 @@ if '__main__' in __name__:
         'time': ['T2'],
         'lag': ['lag1', 'lag3']
     }
-    main_comparisons = [['S-S', 'NS-S'], ['NS-S', 'S-NS']]
+    main_comparisons = [['S-S', 'NS-S'], ['NS-S', 'S-NS'], ['NS-NS', 'S-NS']]
 
     analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=True)
+    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=False)
 
     # Comparisons 4 & 5
     event_conditions = {
@@ -356,6 +363,6 @@ if '__main__' in __name__:
     }
     main_comparisons = [['lag1', 'lag3']]
     analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=True)
+    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=False)
 
     analysis.save_output('bootstraps_mean')

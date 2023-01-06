@@ -406,7 +406,7 @@ class EEG_Participant:
         filename : str or PosixPath
         """
         with open(filename, 'rb') as f:
-            print('loading from pickle...')
+            # print('loading from pickle...')
             return pickle.load(f)
 
     def get_epochs(self, by_events=''):

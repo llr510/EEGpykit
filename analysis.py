@@ -1,13 +1,13 @@
 from pathlib import Path
 import mne
 import numpy as np
-
 from preprocesser import EEG_Participant
+from epoch_evoked_plotter import plot_compare_evokeds
 import matplotlib
 import itertools
 from scipy import stats
 import pandas as pd
-import tqdm
+from tqdm import tqdm
 
 gui_env = ['TKAgg', 'GTKAgg', 'Qt4Agg', 'WXAgg']
 for gui in gui_env:
@@ -15,7 +15,6 @@ for gui in gui_env:
         print("testing", gui)
         matplotlib.use(gui, force=True)
         from matplotlib import pyplot as plt
-
         break
     except:
         continue
@@ -33,10 +32,8 @@ class BaseAnalysis:
         self.epochs = None
         self.channels = None
 
-    def select_events(self, events, drop_unselected=False):
+    def select_events(self, events):
         self.selected_events = events
-        if drop_unselected:
-            self.epochs = self.epochs[self.selected_events]
 
     def select_channels(self, channels: list):
         self.channels = channels
@@ -45,7 +42,7 @@ class BaseAnalysis:
         self.evoked = self.epochs[self.selected_events].average()
 
     def plot_channels(self):
-        pass
+        raise NotImplementedError
 
     def plot_heatmaps(self, title, anim=False, show=True, save=True):
         times = [x / 10 for x in range(0, int(self.evoked.tmax * 10) + 1)]
@@ -68,54 +65,63 @@ class BaseAnalysis:
             if save:
                 anim.save(Path(self.analysis_db, 'figs', 'topo', f'topo_{title}.gif'))
 
-    def update_events(self):
-        self.epochs.events
-
 
 class Group(BaseAnalysis):
     def __init__(self, analysis_db, data_db, individual_list):
         super().__init__(analysis_db, data_db)
+        self.evokeds_cropped = None
+        self.epoch_objects = None
         self.individual_list = individual_list
+
         self.evokeds = None
         self.grand_evoked = None
         self.means = None
         self.peaks = None
 
     def load_epochs(self):
-        """loads all epoch object pickles in individual list and combine them into one epoch object"""
-        epoch_objects = []
-        id_offset = 0
-        for individual in self.individual_list:
-            id_offset += 100
+        """loads all epoch object pickles in individual list"""
+        self.epoch_objects = {}
+        for individual in tqdm(self.individual_list):
             data = EEG_Participant.load(individual).epochs
+            self.epoch_objects[individual.name] = data
+        # self.channels = individual.ch_names
+        del data
 
-            data.event_id = {f'{individual.stem}/' + label: id_val + id_offset
-                             for label, id_val in data.event_id.items()}
-            data.events[:, 2] = data.events[:, 2] + id_offset
-
-            epoch_objects.append(data)
-
-        self.epochs = mne.epochs.concatenate_epochs(epochs_list=epoch_objects, add_offset=True)
-        self.channels = self.epochs.ch_names
-        del epoch_objects, data
-
-    def individuals_to_evokeds(self):
-        """converts epoch object made of multiple participants into separate evoked objects."""
+    def individuals_to_evokeds(self, exclude_list):
+        """converts epoch objects to separate evoked objects."""
         self.evokeds = []
-        for individual in self.individual_list:
-            self.evokeds.append(self.epochs[individual.stem + '/' + self.selected_events].average())
+        for individual, epochs in self.epoch_objects.items():
+            if individual not in exclude_list:
+                m = epochs[self.selected_events].average()
+                self.evokeds.append(m)
+
+    def check_for_missing_events(self, conditions):
+        """converts epoch objects to separate evoked objects."""
+        exclude_list = []
+        for condition in conditions:
+            for individual, epochs in self.epoch_objects.items():
+                try:
+                    if len(epochs[condition]) < 1:
+                        print('no epochs found for selected event types')
+                        exclude_list.append(individual)
+                except KeyError as e:
+                    print(e)
+                    exclude_list.append(individual)
+        return exclude_list
+
+    def window_crop(self, tmin, tmax):
+        self.evokeds_cropped = []
+        for evoked in self.evokeds:
+            self.evokeds_cropped.append(evoked.copy().crop(tmin=tmin, tmax=tmax).pick_channels(self.channels))
 
     def window_average(self, tmin, tmax, plotting=False):
         """gets mean value for all evokeds in specific time window"""
         self.means = []
         for evoked in self.evokeds:
-            self.means.append(
-                evoked.copy()
-                .crop(tmin=tmin, tmax=tmax)
-                .pick_channels(self.channels)
-                .data.mean())
+            e = evoked.copy().crop(tmin=tmin, tmax=tmax).pick_channels(self.channels).data.mean()
+            self.means.append(e)
             if plotting:
-                evoked.copy().crop(tmin=tmin, tmax=tmax).pick_channels(self.channels).plot()
+                e.plot()
 
     def window_peak(self, tmin, tmax, mode="abs"):
         """gets peak value for all evokeds in specific time window"""
@@ -177,7 +183,7 @@ class Statistics:
     """Uses GroupAnalysis object to compute statistics"""
 
     def __init__(self, data: Group, main_comp: list, event_cond: dict, components: list):
-        self.data = data
+        self.group_data = data
         self.main_comp = main_comp
         self.con_dict = event_cond
         self.combinations = list(itertools.product(*self.con_dict.values()))
@@ -190,53 +196,69 @@ class Statistics:
         self.combinations = list(itertools.product(*self.con_dict.values()))
         self.components = components
 
-    def get_window_values(self, condition, component: ERP_component, type='mean', plotting=False):
-        """filters by ERP and events before getting values"""
-        self.data.select_channels(component.location)
-        self.data.select_events(condition)
-        self.data.individuals_to_evokeds()
+    def get_window_values(self, condition, component: ERP_component, exclude_list, type='mean', plotting=False):
+        """filters by ERP and events before getting values across time window defined by ERP component."""
+        self.group_data.select_channels(component.location)
+        self.group_data.select_events(condition)
+        self.group_data.individuals_to_evokeds(exclude_list)
 
         if type == 'mean':
-            self.data.window_average(tmin=component.start, tmax=component.end, plotting=plotting)
-            return data.means
+            self.group_data.window_average(tmin=component.start, tmax=component.end, plotting=plotting)
+            return self.group_data.means
+        elif type == 'crop':
+            self.group_data.window_crop(tmin=0, tmax=None)
+            return self.group_data.evokeds_cropped
         elif type == 'peak':
-            self.data.window_peak(tmin=component.start, tmax=component.end)
-            return data.peaks
+            self.group_data.window_peak(tmin=component.start, tmax=component.end)
+            return self.group_data.peaks
         elif type == 'grand':
-            self.data.evokeds_to_grand_evoked(tmin=0, tmax=None)
-            return data.grand_evoked
+            self.group_data.evokeds_to_grand_evoked(tmin=0, tmax=None)
+            return self.group_data.grand_evoked
 
     def compute(self, func=stats.ttest_rel, type='mean', plotting=False):
         """computes statistics for all permutations of events and ERP components of interest"""
-        for comparison in main_comparisons:
+        for main_comparison in main_comparisons:
             for component in self.components:
                 for combination in self.combinations:
                     combination = '/'.join(combination)
 
                     row = {}
                     means = []
-                    grand = {}
+                    crops = {}
                     row['component'] = component.name
                     row['combination'] = combination
 
-                    for n, condition in enumerate(comparison):
-                        events = '/'.join([condition, combination])
-                        mean_windows = self.get_window_values(events, component, type=type, plotting=False)
+                    main_conditions = ['/'.join([main_condition, combination]) for main_condition in main_comparison]
+                    exclude_list = self.group_data.check_for_missing_events(conditions=main_conditions)
+                    # print(list(set(exclude_list)))
+                    for n, main_condition in enumerate(main_comparison):
+                        events = '/'.join([main_condition, combination])
+                        mean_windows = self.get_window_values(events, component, exclude_list, type, plotting=False)
                         means.append(mean_windows)
 
-                        row[f'condition{n + 1}'] = condition
+                        row[f'condition{n + 1}'] = main_condition
                         row[f'mean{n + 1}'] = np.mean(mean_windows)
+
                         if plotting:
-                            grand[condition] = self.get_window_values(events, component, type='grand')
+                            crops[main_condition] = self.get_window_values(events, component, exclude_list, type='crop')
 
                     stats_output = func(means[0], means[1])
+                    row['n'] = len(self.group_data.evokeds)
                     row = {**row, **stats_output}
-
                     self.dict_list.append(row)
+
                     if plotting:
-                        title = f"{comparison[0]}vs{comparison[1]}_{combination.replace('/', '_')}_{component.name}"
-                        fig = mne.viz.plot_compare_evokeds(grand, title=title, show=False, show_sensors=True)[0]
-                        fig.axes[0].axvspan(component.start, component.end, facecolor='r', alpha=0.3,
+                        # Uses modified function from old version of MNE that allows for confidence interval
+                        # plotting on group data
+                        title = f"{main_comparison[0]}vs{main_comparison[1]}_{combination.replace('/', '_')}_{component.name}"
+                        fig = plot_compare_evokeds(crops, title=title, show=False, show_sensors=True, ci=0.95)[0]
+
+                        # Plot coloured bar behind lines representing ERP component
+                        if row['significance']:
+                            facecolor = 'g'
+                        else:
+                            facecolor = 'r'
+                        fig.axes[0].axvspan(component.start, component.end, facecolor=facecolor, alpha=0.3,
                                             label=component.name)
                         fig.savefig(fname=Path('figures', 'windows', title))
                         plt.close()
@@ -246,10 +268,10 @@ class Statistics:
         float_cols = df.select_dtypes("number").columns
         for col in float_cols:
             df[col] = df[col].apply(lambda x: format(x, '#.3g'))
-        df.to_csv(f"{filename}_{len(self.data.evokeds)}.csv", index=False)
+        df.to_csv(f"{filename}_{len(self.group_data.epoch_objects)}.csv", index=False)
 
     @staticmethod
-    def bootstrap_paired_t_test(conditionA, conditionB, btval=1000):
+    def bootstrap_paired_t_test(conditionA, conditionB, btval=10000):
         """
         Bootstrapping: Random sampling with replacement
         Written by Emma Raat. Modified by Lyndon Rakusen
@@ -261,7 +283,6 @@ class Statistics:
         actualT = abs(actualT)
         mean_diff = np.mean(conditionA) - np.mean(conditionB)
         # positive = A is higher, negative = B is higher
-
         bt_Ts = []
         for bt in range(0, btval):
             bt_A = np.random.choice(data_array, len(conditionA))
@@ -292,8 +313,10 @@ class Statistics:
 
 if '__main__' in __name__:
     wd = Path(
-        '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK')
-    assert wd.exists()
+        '/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK')
+    if not wd.exists():
+        print(f'{wd} does not exist.')
+        quit()
     data_db = Path(wd, 'MNE_preprocessing_db')
     analysis_db = Path(wd, 'MNE_analysis_db')
 
@@ -322,12 +345,13 @@ if '__main__' in __name__:
         '20221124_0945PPT30_scenes'
     ]]
 
-    P3a = ERP_component(name='P3a', start=250, end=280, channels=['Fp1'])
-    P3b = ERP_component(name='P3b', start=250, end=500, channels=['Pz', 'CPz', 'POz'])
+    # P3a = ERP_component(name='P3a', start=250, end=280, channels=['Fp1'])
+    P3a = ERP_component(name='P3a', start=280, end=380, channels=['Fp1'])
+    P3b_long = ERP_component(name='P3b', start=250, end=500, channels=['Pz', 'CPz', 'POz'])
+    P3b = ERP_component(name='P3b', start=250, end=350, channels=['Pz', 'CPz', 'POz'])
 
     data = Group(analysis_db=analysis_db, data_db=data_db, individual_list=individual_list)
     data.load_epochs()
-    data.update_events()
 
     # Comparisons 1 & 2
     event_conditions = {
@@ -337,10 +361,10 @@ if '__main__' in __name__:
         'lag': ['lag1', 'lag3']
     }
     main_comparisons = [['S-S', 'NS-NS']]
-    components = [P3a, P3b]
-
+    components = [P3a, P3b_long]
+    plotting = True
     analysis = Statistics(data=data, main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    analysis.compute(analysis.bootstrap_paired_t_test, type='mean', plotting=False)
+    analysis.compute(analysis.bootstrap_paired_t_test, type='mean', plotting=plotting)
 
     # Comparisons 3
     event_conditions = {
@@ -350,9 +374,9 @@ if '__main__' in __name__:
         'lag': ['lag1', 'lag3']
     }
     main_comparisons = [['S-S', 'NS-S'], ['NS-S', 'S-NS'], ['NS-NS', 'S-NS']]
-
+    components = [P3a, P3b_long]
     analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=False)
+    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
 
     # Comparisons 4 & 5
     event_conditions = {
@@ -362,7 +386,32 @@ if '__main__' in __name__:
         'time': ['T1', 'T2']
     }
     main_comparisons = [['lag1', 'lag3']]
+    components = [P3a, P3b_long]
     analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=False)
+    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
+
+    # Comparisons 6
+    event_conditions = {
+        'stimuli': ['scene'],
+        'condition': ['S-S', 'NS-NS'],
+        'accuracy': ['correct'],
+        'lag': ['lag1', 'lag3']
+    }
+    main_comparisons = [['T1', 'T2']]
+    components = [P3a, P3b_long]
+    analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
+    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
+
+    # Comparisons 7
+    event_conditions = {
+        'stimuli': ['scene'],
+        'condition': ['NS-S', 'S-NS'],
+        'time': ['T2'],
+        'lag': ['lag1', 'lag3']
+    }
+    main_comparisons = [['correct', 'attentional_blink']]
+    components = [P3a, P3b]
+    analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
+    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
 
     analysis.save_output('bootstraps_mean')

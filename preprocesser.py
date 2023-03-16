@@ -16,7 +16,7 @@ from mne import io
 # pip install https://github.com/wmvanvliet/mne-faster/archive/refs/heads/main.zip
 from mne_faster import (find_bad_channels, find_bad_epochs,
                         find_bad_components, find_bad_channels_in_epochs)
-from read_antcnt import read_raw_antcnt, read_events_trg
+from utils.read_antcnt import read_raw_antcnt, read_events_trg
 import numpy as np
 import pickle
 import matplotlib.pyplot as plt
@@ -25,11 +25,12 @@ from collections import Counter
 from datetime import datetime
 from typing import Union
 
+from utils.dialogue_box import dialogue_window
+
 
 def resample_and_bandpass_raw(raw_fname, ref_channel, eog_channel, montage,
                               sfreq=200, hfreq=40, lfreq=0.5, plotting=False, report=None):
     """
-
     :param raw_fname: str or PosixPath
     :param ref_channel: str
     :param eog_channel:
@@ -95,7 +96,7 @@ def resample_and_bandpass_raw(raw_fname, ref_channel, eog_channel, montage,
     return raw, events, picks, report
 
 
-def preprocess_with_faster(raw, events, event_ids, picks, pid, tmin=-0.5, bmax=0, tmax=1, plotting=False,
+def preprocess_with_faster(raw, events, event_ids, picks, tmin=-0.5, bmax=0, tmax=1, plotting=False,
                            report=None):
     plt.close('all')
     logdict = {}
@@ -170,6 +171,7 @@ def preprocess_with_faster(raw, events, event_ids, picks, pid, tmin=-0.5, bmax=0
             epochs._data[i, :, :] = ep._data[0, :, :]
 
     # Compute evoked after cleaning, using an average EEG reference
+    # Second filtering to catch any high frequency electrical noise
     epochs.filter(l_freq=None, h_freq=40, method='fir', picks=picks)  # , h_trans_bandwidth=9)
     epochs.set_eeg_reference('average')
     epochs.apply_baseline(baseline)
@@ -280,6 +282,7 @@ class EEG_Participant:
     output_path : object
         The location of the preprocessing database where all the outputs end up.
     """
+
     def __init__(self, pid: str, ppt_num: int, data_path: Union[str, PosixPath], ref_channel: str,
                  EOG_channel: str, event_ids: dict, montage: mne.channels.DigMontage, status: str,
                  output_path: Union[str, PosixPath]):
@@ -350,7 +353,6 @@ class EEG_Participant:
                                                                                                     self.events,
                                                                                                     self.event_ids,
                                                                                                     self.picks,
-                                                                                                    self.pid,
                                                                                                     tmin=tmin,
                                                                                                     bmax=bmax,
                                                                                                     tmax=tmax,
@@ -427,6 +429,7 @@ class EEG_Experiment:
     """
     Class for loading and preprocessing multiple data files at once. Stores them as EEG_Participant objects.
     """
+
     def __init__(self, exp_filepath, output_path, event_ids, montage):
         """
         :type exp_filepath: str or PosixPath
@@ -449,29 +452,32 @@ class EEG_Experiment:
     def read_RAWs(self, sfreq=200, hfreq=40, lfreq=0.5, plotting=False, skip_existing=True):
 
         for participant in self.participants:
-            if participant.status == 'raw_filtered' and skip_existing is True:
-                print(f'{participant.pid} raw data already filtered. Skipping')
-                continue
-            elif participant.status == 'epoched' and skip_existing is True:
-                print(f'{participant.pid} raw data already filtered. Skipping')
-                continue
+            if skip_existing is True:
+                if participant.status == 'raw_filtered' or participant.status == 'epoched':
+                    print(f'{participant.pid} raw data already filtered. Skipping')
+                    continue
             participant.read_RAW(sfreq, hfreq, lfreq, plotting)
             participant.save(make_report=True)
             # Clear RAW from memory otherwise we might run out if we load a lot of participants
             del participant.RAW
 
     def preprocess_RAWs(self, tmin, bmax, tmax, additional_events_fname=None, plotting=False, skip_existing=True):
+
         for participant in self.participants:
             if participant.status == '':
                 print(f'{participant.pid} raw data not filtered. Skipping')
                 continue
+            elif participant.status == 'epoched' and skip_existing is True:
+                print(f'{participant.pid} epoch data already exists. Skipping')
+                continue
+
             new_data_path = participant.data_path
             new_filename = Path(self.output_path, participant.pid).with_suffix('.pickle')
             participant = participant.load(new_filename)
             participant.data_path = new_data_path
             participant.filename = new_filename
 
-            if participant.epochs is not None and skip_existing is True:
+            if participant.epochs is not None and skip_existing is True and participant.status == 'epoched':
                 print(f'{participant.pid} epoch data already exists. Skipping')
                 continue
 
@@ -483,25 +489,60 @@ class EEG_Experiment:
             del participant.RAW
 
 
-if '__main__' in __name__:
-    output_path = Path(
-        '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL '
-        'BLINK/MNE_preprocessing_db')
-    assert output_path.exists()
+def run_with_UI():
+    box = dialogue_window(title='Preprocessing Setup')
+    box.show()
+    settings = box.get_output()
+    print(settings)
+    assert settings['Output DB:'].exists()
 
     ANTwave64 = mne.channels.read_custom_montage(fname=Path('montages', 'waveguard64_rescaled_small.xyz'),
                                                  coord_frame="unknown")
-    # The basic trigger values and their labels in each recording. 
-    event_ids = {'T1/S': 11,
-                 'T1/NS': 12,
-                 'T2/S': 21,
-                 'T2/NS': 22, }
+    # The basic trigger values and their labels in each recording.
+    trigger_df = pd.read_csv(settings['Trigger labels:'])
+    event_ids = {row['label']: row['value'] for idx, row in trigger_df.iterrows() if row['active'] == 1}
 
-    study = EEG_Experiment(exp_filepath='experiment_participant_list.csv',
-                           output_path=output_path,
+    study = EEG_Experiment(exp_filepath=settings['Participant List File:'],
+                           output_path=settings['Output DB:'],
                            event_ids=event_ids,
                            montage=ANTwave64)
 
+    if settings['Filter raw']:
+        study.read_RAWs(skip_existing=settings['skip existing'])
+
+    study.preprocess_RAWs(tmin=settings['tmin'], bmax=settings['bmax'], tmax=settings['tmax'],
+                          additional_events_fname=settings['additional_events_fname'],
+                          plotting=settings['plotting'],
+                          skip_existing=settings['skip existing'])
+
+
+if '__main__' in __name__:
+    # d = Path('/Volumes').iterdir()
+    # d = [d for d in d if 'psgroups' in d.name]
+    # # raw = read_raw_antcnt('/Volumes/CCPL_SSD/Attentional_Blink/PPT1_dots/20230111_0903PPT1_dots.cnt')
+    # # mne.io.read_raw_fif('testing_raw.fif')
+    # # raw.save("testing_raw.fif", overwrite=True)
+    # output_path = Path(d[-1],
+    #                    'AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL '
+    #                    'BLINK/MNE_preprocessing_db')
+    #
+    # assert output_path.exists()
+    #
+    # ANTwave64 = mne.channels.read_custom_montage(fname=Path('montages', 'waveguard64_rescaled_small.xyz'),
+    #                                              coord_frame="unknown")
+    # # The basic trigger values and their labels in each recording.
+    # trigger_df = pd.read_csv(
+    #     '/Users/llr510/PycharmProjects/CNT_EEG_preprocessing_with_MNE_and_FASTER/experiments/e1'
+    #     '/experiment_trigger_labels.csv')
+    # event_ids = {row['label']: row['value'] for idx, row in trigger_df.iterrows() if row['active'] == 1}
+    #
+    # study = EEG_Experiment(exp_filepath='experiments/e1/experiment_participant_list_dots.csv',
+    #                        output_path=output_path,
+    #                        event_ids=event_ids,
+    #                        montage=ANTwave64)
+    #
     # study.read_RAWs(skip_existing=True)
-    study.preprocess_RAWs(tmin=-0.2, bmax=0, tmax=0.8, additional_events_fname='new_markers', plotting=False,
-                          skip_existing=False)
+    # study.preprocess_RAWs(tmin=-0.2, bmax=0, tmax=0.8, additional_events_fname='new_markers', plotting=False,
+    #                       skip_existing=True)
+
+    run_with_UI()

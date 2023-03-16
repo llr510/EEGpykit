@@ -2,7 +2,7 @@ from pathlib import Path
 import mne
 import numpy as np
 from preprocesser import EEG_Participant
-from epoch_evoked_plotter import plot_compare_evokeds
+from utils.epoch_evoked_plotter import plot_compare_evokeds
 import matplotlib
 import itertools
 from scipy import stats
@@ -15,6 +15,7 @@ for gui in gui_env:
         print("testing", gui)
         matplotlib.use(gui, force=True)
         from matplotlib import pyplot as plt
+
         break
     except:
         continue
@@ -39,24 +40,30 @@ class BaseAnalysis:
         self.channels = channels
 
     def epochs_to_evoked(self):
-        self.evoked = self.epochs[self.selected_events].average()
+        if self.selected_events is None:
+            self.evoked = self.epochs.average()
+        else:
+            self.evoked = self.epochs[self.selected_events].average()
 
     def plot_channels(self):
         raise NotImplementedError
 
-    def plot_heatmaps(self, title, anim=False, show=True, save=True):
+    def plot_heatmaps(self, title, anim=False, show=True, save=True, dpi=300):
+        if self.evoked is None:
+            print('No evoked data to plot')
+            return
         times = [x / 10 for x in range(0, int(self.evoked.tmax * 10) + 1)]
-        joint = self.evoked.plot_joint(title=title, show=show)
+        joint = self.evoked.plot(show=show, spatial_colors=True)
+        # joint = self.evoked.plot_joint(title=title, show=show)
         topo = self.evoked.plot_topomap(times=times, ch_type='eeg', title=title, show=show)
 
         if save:
             output = Path(self.analysis_db, 'figs', 'joint', f'joint_{title}.jpg')
-
             output.parent.mkdir(parents=True, exist_ok=True)
-            joint.savefig(output)
+            joint.savefig(output, dpi=dpi)
             output = Path(self.analysis_db, 'figs', 'topo', f'topo_{title}.jpg')
             output.parent.mkdir(parents=True, exist_ok=True)
-            topo.savefig(output)
+            topo.savefig(output, dpi=dpi)
 
         if anim:
             times = [x / 100 for x in range(0, 101)]
@@ -110,12 +117,13 @@ class Group(BaseAnalysis):
         return exclude_list
 
     def window_crop(self, tmin, tmax):
+        """crops evokeds to time window without averaging"""
         self.evokeds_cropped = []
         for evoked in self.evokeds:
             self.evokeds_cropped.append(evoked.copy().crop(tmin=tmin, tmax=tmax).pick_channels(self.channels))
 
     def window_average(self, tmin, tmax, plotting=False):
-        """gets mean value for all evokeds in specific time window"""
+        """gets single mean value for all evokeds in specific time window"""
         self.means = []
         for evoked in self.evokeds:
             e = evoked.copy().crop(tmin=tmin, tmax=tmax).pick_channels(self.channels).data.mean()
@@ -161,12 +169,47 @@ class Individual(BaseAnalysis):
     def __init__(self, analysis_db, data_db, filename):
         super().__init__(analysis_db, data_db)
         self.pickle_path = Path(data_db, filename)
+        self.filename = filename
+        self.pid = filename.stem
 
     def load_epochs(self):
         data = EEG_Participant.load(self.pickle_path)
         self.epochs = data.epochs
         self.channels = self.epochs.ch_names
         del data
+
+    def window_crop(self, tmin, tmax):
+        self.epochs.copy().crop(tmin=tmin, tmax=tmax).pick_channels(self.channels)
+
+    def window_average(self, tmin, tmax, plotting=False):
+        """gets mean value for all epochs in specific time window"""
+        self.epochs.copy().crop(tmin=tmin, tmax=tmax).pick_channels(self.channels).data.mean()
+
+    def plot_evokeds(self, main_comparison=[], component=None, show=True):
+        self.select_channels(component.location)
+
+        main_conditions = {main_condition: '/'.join([main_condition, self.selected_events]) for main_condition in
+                           main_comparison}
+        try:
+            main_comparison = {condition: self.epochs[selection] for condition, selection in main_conditions.items()}
+            # plot with 95% confidence intervals
+            if self.channels is None:
+                picks = 'eeg'
+            else:
+                picks = self.channels
+            title = f"{self.pid}_{list(main_comparison.keys())[0]}vs{list(main_comparison.keys())[1]}_{self.selected_events.replace('/', '_')}_{component.name}"
+            fig = plot_compare_evokeds(main_comparison, picks=picks, combine='mean', ci=0.95, title=title,
+                                       show_sensors=True, show=False)[0]
+        except KeyError:
+            return {}
+        fig.axes[0].axvspan(component.start, component.end, facecolor='black', alpha=0.3,
+                            label=component.name)
+        if show:
+            fig.show()
+            plt.pause(10)
+        fig.savefig(Path('figures', 'individual', title).with_suffix('.png'))
+        # Todo why does this turn into a list?
+        return {key: val[0].average() for key, val in main_comparison.items()}
 
 
 class ERP_component:
@@ -268,7 +311,12 @@ class Statistics:
         float_cols = df.select_dtypes("number").columns
         for col in float_cols:
             df[col] = df[col].apply(lambda x: format(x, '#.3g'))
-        df.to_csv(f"{filename}_{len(self.group_data.epoch_objects)}.csv", index=False)
+
+        pth = Path(f"{filename}_{len(self.group_data.epoch_objects)}.csv")
+        if pth.exists():
+            dfo = pd.read_csv(pth)
+            df = dfo.append(df)
+        df.to_csv(pth, index=False)
 
     @staticmethod
     def bootstrap_paired_t_test(conditionA, conditionB, btval=10000):
@@ -278,7 +326,6 @@ class Statistics:
         """
         data_array = conditionA + conditionB
         data_array = np.asarray(data_array, dtype=object)
-        # Todo The output were backwards in the original code - let Emma know
         actualT, actualP = stats.ttest_rel(conditionA, conditionB)
         actualT = abs(actualT)
         mean_diff = np.mean(conditionA) - np.mean(conditionB)
@@ -311,51 +358,114 @@ class Statistics:
         return {'t': t_val, 'p': t_val, 'sig': significance}
 
 
+def plot_individuals(filename, individuals, con_dict, components, main_comparisons):
+    combinations = list(itertools.product(*con_dict.values()))
+    dict_list = []
+    for individual in individuals:
+        i = Individual(analysis_db=analysis_db, data_db=data_db, filename=individual)
+        i.load_epochs()
+        for main_comparison in main_comparisons:
+            for component in components:
+                for combination in combinations:
+                    combination = '/'.join(combination)
+
+                    row = {'pid': i.pid, 'component': component.name, 'combination': combination}
+
+                    i.select_events(combination)
+                    evokeds = i.plot_evokeds(main_comparison=main_comparison, component=component, show=False)
+                    for n, (con, evoked), in enumerate(evokeds.items()):
+                        row[f'condition{n + 1}'] = con
+                        row[f'mean{n + 1}'] = evoked.copy().crop(tmin=component.start,
+                                                                 tmax=component.end).pick_channels(
+                            component.location).data.mean()
+                        row[f'n_epochs{n + 1}'] = evoked.nave
+                    dict_list.append(row)
+
+    df = pd.DataFrame(dict_list)
+    float_cols = df.select_dtypes("number").columns
+    for col in float_cols:
+        df[col] = df[col].apply(lambda x: format(x, '#.3g'))
+    df.to_csv(f"{filename}_{len(individuals)}.csv", index=False)
+
+
 if '__main__' in __name__:
     wd = Path(
-        '/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK')
+        '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK')
+
     if not wd.exists():
         print(f'{wd} does not exist.')
         quit()
+    # data_db = Path(wd, 'MNE_preprocessing_db')
+    # analysis_db = Path(wd, 'MNE_analysis_db')
+
+    # individual_list = [Path(data_db, pickle).with_suffix('.pickle') for pickle in [
+    #     '20220131_1255ppt1',
+    #     '20220318_1418PPT1NEW',
+    #     '20220202_0830PPT2',
+    #     '20220203_1225PPT3',
+    #     '20220204_0855PPT4',
+    #     '20220209_1456PPT6',
+    #     '20220211_0846PPT7',
+    #     '20220218_0920PPT8',
+    #     '20220218_1242PPT9',
+    #     '20220225_1019PPT11',
+    #     '20220302_0952PPT12',
+    #     '20220310_0848PPT13',
+    #     '20220311_1132PPT15',
+    #     '20220311_1445PPT16',
+    #     '20220314_0847PPT17',
+    #     '20220316_1141PPT19',
+    #     '20220318_1142ppt22',
+    #     '20221110_0937PPT24_scenes',
+    #     '20221103_1247_PPT23_scenes',
+    #     '20221111_1152PPT25_scenes',
+    #     '20221122_1258_PPT26_scenes',
+    #     '20221124_0945PPT30_scenes'
+    # ]]
     data_db = Path(wd, 'MNE_preprocessing_db')
-    analysis_db = Path(wd, 'MNE_analysis_db')
+    analysis_db = Path(wd, 'MNE_analysis_db_dots')
 
+    experiment = 'dot'
     individual_list = [Path(data_db, pickle).with_suffix('.pickle') for pickle in [
-        '20220131_1255ppt1',
-        '20220318_1418PPT1NEW',
-        '20220202_0830PPT2',
-        '20220203_1225PPT3',
-        '20220204_0855PPT4',
-        '20220209_1456PPT6',
-        '20220211_0846PPT7',
-        '20220218_0920PPT8',
-        '20220218_1242PPT9',
-        '20220225_1019PPT11',
-        '20220302_0952PPT12',
-        '20220310_0848PPT13',
-        '20220311_1132PPT15',
-        '20220311_1445PPT16',
-        '20220314_0847PPT17',
-        '20220316_1141PPT19',
-        '20220318_1142ppt22',
-        '20221110_0937PPT24_scenes',
-        '20221103_1247_PPT23_scenes',
-        '20221111_1152PPT25_scenes',
-        '20221122_1258_PPT26_scenes',
-        '20221124_0945PPT30_scenes'
+        # '20220202_0830PPT2',
+        # '20220203_1225PPT3',
+        # '20220204_0855PPT4',
+        # '20220211_0846PPT7',
+        # '20220302_0952PPT12',
+        # '20220311_0900PPT14',
+        '20230111_0903PPT1_dots',
+        '20230126_0917PPT5_dots',
+        '20230210_0840PPT23_dots',
+        '20230215_0843PPT24_dots',
+        '20230217_0846PPT25_dots',
     ]]
-
     # P3a = ERP_component(name='P3a', start=250, end=280, channels=['Fp1'])
     P3a = ERP_component(name='P3a', start=280, end=380, channels=['Fp1'])
-    P3b_long = ERP_component(name='P3b', start=250, end=500, channels=['Pz', 'CPz', 'POz'])
+    P3b_long = ERP_component(name='P3b_long', start=250, end=500, channels=['Pz', 'CPz', 'POz'])
     P3b = ERP_component(name='P3b', start=250, end=350, channels=['Pz', 'CPz', 'POz'])
+
+    P3a_delayed = ERP_component(name='P3a_delayed', start=350, end=450, channels=['Fp1'])
+    P3b_delayed = ERP_component(name='P3b_delayed', start=350, end=500, channels=['Pz', 'CPz', 'POz'])
+    # event_conditions = {
+    #     'stimuli': ['scene'],
+    #     'condition': ['NS-S', 'S-NS'],
+    #     'time': ['T2'],
+    #     'lag': ['lag1', 'lag3']
+    # }
+    # main_comparisons = [['correct', 'attentional_blink']]
+    # components = [P3a, P3b]
+    # plot_individuals(filename='individual_means',
+    #                  individuals=individual_list,
+    #                  con_dict=event_conditions,
+    #                  components=components,
+    #                  main_comparisons=main_comparisons)
 
     data = Group(analysis_db=analysis_db, data_db=data_db, individual_list=individual_list)
     data.load_epochs()
-
+    # data.plot_heatmaps('test', dpi=600)
     # Comparisons 1 & 2
     event_conditions = {
-        'stimuli': ['scene'],
+        'stimuli': [experiment],
         'accuracy': ['correct'],
         'time': ['T1', 'T2'],
         'lag': ['lag1', 'lag3']
@@ -368,7 +478,7 @@ if '__main__' in __name__:
 
     # Comparisons 3
     event_conditions = {
-        'stimuli': ['scene'],
+        'stimuli': [experiment],
         'accuracy': ['correct'],
         'time': ['T2'],
         'lag': ['lag1', 'lag3']
@@ -380,7 +490,7 @@ if '__main__' in __name__:
 
     # Comparisons 4 & 5
     event_conditions = {
-        'stimuli': ['scene'],
+        'stimuli': [experiment],
         'condition': ['S-S', 'NS-NS'],
         'accuracy': ['correct'],
         'time': ['T1', 'T2']
@@ -392,7 +502,7 @@ if '__main__' in __name__:
 
     # Comparisons 6
     event_conditions = {
-        'stimuli': ['scene'],
+        'stimuli': [experiment],
         'condition': ['S-S', 'NS-NS'],
         'accuracy': ['correct'],
         'lag': ['lag1', 'lag3']
@@ -404,13 +514,35 @@ if '__main__' in __name__:
 
     # Comparisons 7
     event_conditions = {
-        'stimuli': ['scene'],
+        'stimuli': [experiment],
         'condition': ['NS-S', 'S-NS'],
         'time': ['T2'],
         'lag': ['lag1', 'lag3']
     }
     main_comparisons = [['correct', 'attentional_blink']]
     components = [P3a, P3b]
+    analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
+    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
+
+    # Comparisons 7
+    event_conditions = {
+        'stimuli': [experiment],
+        'time': ['T2'],
+        'lag': ['lag1', 'lag3']
+    }
+    main_comparisons = [['correct', 'attentional_blink'], ['correct', 'incorrect'], ['incorrect', 'attentional_blink']]
+    components = [P3a, P3b]
+    analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
+    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
+
+    # Comparisons 7
+    event_conditions = {
+        'stimuli': [experiment],
+        'time': ['T2'],
+        'lag': ['lag1']
+    }
+    main_comparisons = [['correct', 'attentional_blink']]
+    components = [P3a_delayed, P3b_delayed]
     analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
     analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
 

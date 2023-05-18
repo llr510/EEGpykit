@@ -4,13 +4,13 @@
 # Ignore venv and other directories
 venv/
 __pycache__/
-
+.idea/
 PPT 1 NEW/
 MNE_preprocessing_db/
 figures/
+windows/
 # Ignore large data files and images
 ~$*
-*.idea
 *.jpg
 *.xlsx
 *.csv

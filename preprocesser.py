@@ -24,8 +24,9 @@ import pandas as pd
 from collections import Counter
 from datetime import datetime
 from typing import Union
-
 from utils.dialogue_box import dialogue_window
+import sys
+sys.path.append('utils')
 
 
 def resample_and_bandpass_raw(raw_fname, ref_channel, eog_channel, montage,
@@ -43,6 +44,7 @@ def resample_and_bandpass_raw(raw_fname, ref_channel, eog_channel, montage,
     :return: RawANTCNT,
     """
     event_fname = Path(raw_fname).with_suffix('.trg')
+    assert raw_fname.exists()
     if raw_fname.suffix != '.cnt':
         raw = io.read_raw(str(raw_fname), preload=True, eog=[eog_channel])
     else:

@@ -9,6 +9,10 @@ from scipy import stats
 import pandas as pd
 from tqdm import tqdm
 
+import sys
+
+sys.path.append('utils')
+
 gui_env = ['TKAgg', 'GTKAgg', 'Qt4Agg', 'WXAgg']
 for gui in gui_env:
     try:
@@ -294,7 +298,8 @@ class Statistics:
                         # Uses modified function from old version of MNE that allows for confidence interval
                         # plotting on group data
                         title = f"{main_comparison[0]}vs{main_comparison[1]}_{combination.replace('/', '_')}_{component.name}"
-                        fig = plot_compare_evokeds(crops, title=title, show=False, show_sensors=True, ci=0.95)[0]
+
+                        fig = plot_compare_evokeds(crops, title=title, show=False, show_sensors=True, ci=0.95, combine='mean')[0]
 
                         # Plot coloured bar behind lines representing ERP component
                         if row['significance']:
@@ -303,7 +308,10 @@ class Statistics:
                             facecolor = 'r'
                         fig.axes[0].axvspan(component.start, component.end, facecolor=facecolor, alpha=0.3,
                                             label=component.name)
-                        fig.savefig(fname=Path('figures', 'windows', title))
+
+                        fig_path = Path(self.group_data.analysis_db, 'figures', 'windows', title)
+                        fig_path.parent.mkdir(parents=True, exist_ok=True)
+                        fig.savefig(fname=fig_path)
                         plt.close()
 
     def save_output(self, filename):
@@ -312,7 +320,7 @@ class Statistics:
         for col in float_cols:
             df[col] = df[col].apply(lambda x: format(x, '#.3g'))
 
-        pth = Path(f"{filename}_{len(self.group_data.epoch_objects)}.csv")
+        pth = Path(self.group_data.analysis_db, f"{filename}_{len(self.group_data.epoch_objects)}.csv")
         if pth.exists():
             dfo = pd.read_csv(pth)
             df = dfo.append(df)
@@ -389,56 +397,6 @@ def plot_individuals(filename, individuals, con_dict, components, main_compariso
 
 
 if '__main__' in __name__:
-    wd = Path(
-        '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK')
-
-    if not wd.exists():
-        print(f'{wd} does not exist.')
-        quit()
-    # data_db = Path(wd, 'MNE_preprocessing_db')
-    # analysis_db = Path(wd, 'MNE_analysis_db')
-
-    # individual_list = [Path(data_db, pickle).with_suffix('.pickle') for pickle in [
-    #     '20220131_1255ppt1',
-    #     '20220318_1418PPT1NEW',
-    #     '20220202_0830PPT2',
-    #     '20220203_1225PPT3',
-    #     '20220204_0855PPT4',
-    #     '20220209_1456PPT6',
-    #     '20220211_0846PPT7',
-    #     '20220218_0920PPT8',
-    #     '20220218_1242PPT9',
-    #     '20220225_1019PPT11',
-    #     '20220302_0952PPT12',
-    #     '20220310_0848PPT13',
-    #     '20220311_1132PPT15',
-    #     '20220311_1445PPT16',
-    #     '20220314_0847PPT17',
-    #     '20220316_1141PPT19',
-    #     '20220318_1142ppt22',
-    #     '20221110_0937PPT24_scenes',
-    #     '20221103_1247_PPT23_scenes',
-    #     '20221111_1152PPT25_scenes',
-    #     '20221122_1258_PPT26_scenes',
-    #     '20221124_0945PPT30_scenes'
-    # ]]
-    data_db = Path(wd, 'MNE_preprocessing_db')
-    analysis_db = Path(wd, 'MNE_analysis_db_dots')
-
-    experiment = 'dot'
-    individual_list = [Path(data_db, pickle).with_suffix('.pickle') for pickle in [
-        # '20220202_0830PPT2',
-        # '20220203_1225PPT3',
-        # '20220204_0855PPT4',
-        # '20220211_0846PPT7',
-        # '20220302_0952PPT12',
-        # '20220311_0900PPT14',
-        '20230111_0903PPT1_dots',
-        '20230126_0917PPT5_dots',
-        '20230210_0840PPT23_dots',
-        '20230215_0843PPT24_dots',
-        '20230217_0846PPT25_dots',
-    ]]
     # P3a = ERP_component(name='P3a', start=250, end=280, channels=['Fp1'])
     P3a = ERP_component(name='P3a', start=280, end=380, channels=['Fp1'])
     P3b_long = ERP_component(name='P3b_long', start=250, end=500, channels=['Pz', 'CPz', 'POz'])
@@ -446,29 +404,81 @@ if '__main__' in __name__:
 
     P3a_delayed = ERP_component(name='P3a_delayed', start=350, end=450, channels=['Fp1'])
     P3b_delayed = ERP_component(name='P3b_delayed', start=350, end=500, channels=['Pz', 'CPz', 'POz'])
-    # event_conditions = {
-    #     'stimuli': ['scene'],
-    #     'condition': ['NS-S', 'S-NS'],
-    #     'time': ['T2'],
-    #     'lag': ['lag1', 'lag3']
-    # }
-    # main_comparisons = [['correct', 'attentional_blink']]
-    # components = [P3a, P3b]
-    # plot_individuals(filename='individual_means',
-    #                  individuals=individual_list,
-    #                  con_dict=event_conditions,
-    #                  components=components,
-    #                  main_comparisons=main_comparisons)
+
+    wd = Path(
+        '/Volumes/psgroups-2/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK')
+
+    if not wd.exists():
+        print(f'{wd} does not exist.')
+        quit()
+
+    experiment = 'scene'
+
+    if experiment == 'scene':
+        data_db = Path(wd, 'MNE_preprocessing_db')
+        analysis_db = Path(wd, 'MNE_analysis_db_scenes')
+        individual_list = [Path(data_db, pickle).with_suffix('.pickle') for pickle in [
+            '20220131_1255ppt1',
+            '20220318_1418PPT1NEW',
+            '20220202_0830PPT2',
+            '20220203_1225PPT3',
+            '20220204_0855PPT4',
+            '20220209_1456PPT6',
+            '20220211_0846PPT7',
+            '20220218_0920PPT8',
+            '20220218_1242PPT9',
+            '20220225_1019PPT11',
+            '20220302_0952PPT12',
+            '20220310_0848PPT13',
+            '20220311_1132PPT15',
+            '20220311_1445PPT16',
+            '20220314_0847PPT17',
+            '20220316_1141PPT19',
+            '20220318_1142ppt22',
+            '20221110_0937PPT24_scenes',
+            '20221103_1247_PPT23_scenes',
+            '20221111_1152PPT25_scenes',
+            '20221122_1258_PPT26_scenes',
+            '20221124_0945PPT30_scenes'
+        ]]
+    elif experiment == 'dot':
+        data_db = Path(wd, 'MNE_preprocessing_db')
+        analysis_db = Path(wd, 'MNE_analysis_db_dots')
+
+        individual_list = [Path(data_db, pickle).with_suffix('.pickle') for pickle in [
+            '20220202_0830PPT2',
+            '20220203_1225PPT3',
+            '20220204_0855PPT4',
+            '20220211_0846PPT7',
+            '20220302_0952PPT12',
+            '20220311_0900PPT14',
+            '20230111_0903PPT1_dots',
+            '20230126_0917PPT5_dots',
+            '20230210_0840PPT23_dots',
+            '20230215_0843PPT24_dots',
+            '20230217_0846PPT25_dots',
+            '20230224_1654PPT26_dots',
+            '20230222_1647PPT27_dots',
+            '20230307_1010PPT28_dots',
+            '20230310_1258PPT29_dots',
+            '20230313_0844PPT30_dots',
+            '20230316_0904PPT31_dots',
+            '20230317_1307PPT32_dots',
+            # '20230321_1359PPT33_dots',
+            '20230329_1401PPT34_dots',
+            '20230330_0902PPT35_dots',
+            '20230331_0852PPT36_dots',
+            '20230331_1305PPT33-2_dots',
+        ]]
 
     data = Group(analysis_db=analysis_db, data_db=data_db, individual_list=individual_list)
     data.load_epochs()
     # data.plot_heatmaps('test', dpi=600)
-    # Comparisons 1 & 2
+    # Comparisons A
     event_conditions = {
         'stimuli': [experiment],
         'accuracy': ['correct'],
         'time': ['T1', 'T2'],
-        'lag': ['lag1', 'lag3']
     }
     main_comparisons = [['S-S', 'NS-NS']]
     components = [P3a, P3b_long]
@@ -476,74 +486,109 @@ if '__main__' in __name__:
     analysis = Statistics(data=data, main_comp=main_comparisons, event_cond=event_conditions, components=components)
     analysis.compute(analysis.bootstrap_paired_t_test, type='mean', plotting=plotting)
 
-    # Comparisons 3
+    # Comparisons B
     event_conditions = {
         'stimuli': [experiment],
         'accuracy': ['correct'],
         'time': ['T2'],
-        'lag': ['lag1', 'lag3']
     }
-    main_comparisons = [['S-S', 'NS-S'], ['NS-S', 'S-NS'], ['NS-NS', 'S-NS']]
+    main_comparisons = [['S-S', 'NS-S'], ['NS-NS', 'S-NS']]
     components = [P3a, P3b_long]
     analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
     analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
 
-    # Comparisons 4 & 5
+    # Comparisons C & D
     event_conditions = {
         'stimuli': [experiment],
-        'condition': ['S-S', 'NS-NS'],
+        'condition': ['S-S', 'NS-NS', 'S-NS', 'NS-S'],
         'accuracy': ['correct'],
-        'time': ['T1', 'T2']
-    }
-    main_comparisons = [['lag1', 'lag3']]
-    components = [P3a, P3b_long]
-    analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
-
-    # Comparisons 6
-    event_conditions = {
-        'stimuli': [experiment],
-        'condition': ['S-S', 'NS-NS'],
-        'accuracy': ['correct'],
-        'lag': ['lag1', 'lag3']
     }
     main_comparisons = [['T1', 'T2']]
     components = [P3a, P3b_long]
     analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
     analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
 
-    # Comparisons 7
-    event_conditions = {
-        'stimuli': [experiment],
-        'condition': ['NS-S', 'S-NS'],
-        'time': ['T2'],
-        'lag': ['lag1', 'lag3']
-    }
-    main_comparisons = [['correct', 'attentional_blink']]
-    components = [P3a, P3b]
-    analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
-
-    # Comparisons 7
-    event_conditions = {
-        'stimuli': [experiment],
-        'time': ['T2'],
-        'lag': ['lag1', 'lag3']
-    }
-    main_comparisons = [['correct', 'attentional_blink'], ['correct', 'incorrect'], ['incorrect', 'attentional_blink']]
-    components = [P3a, P3b]
-    analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
-
-    # Comparisons 7
-    event_conditions = {
-        'stimuli': [experiment],
-        'time': ['T2'],
-        'lag': ['lag1']
-    }
-    main_comparisons = [['correct', 'attentional_blink']]
-    components = [P3a_delayed, P3b_delayed]
-    analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
+    # # Comparisons 1 & 2
+    # event_conditions = {
+    #     'stimuli': [experiment],
+    #     'accuracy': ['correct'],
+    #     'time': ['T1', 'T2'],
+    #     'lag': ['lag1', 'lag3']
+    # }
+    # main_comparisons = [['S-S', 'NS-NS']]
+    # components = [P3a, P3b_long]
+    # plotting = True
+    # analysis = Statistics(data=data, main_comp=main_comparisons, event_cond=event_conditions, components=components)
+    # analysis.compute(analysis.bootstrap_paired_t_test, type='mean', plotting=plotting)
+    #
+    # # Comparisons 3
+    # event_conditions = {
+    #     'stimuli': [experiment],
+    #     'accuracy': ['correct'],
+    #     'time': ['T2'],
+    #     'lag': ['lag1', 'lag3']
+    # }
+    # main_comparisons = [['S-S', 'NS-S'], ['NS-S', 'S-NS'], ['NS-NS', 'S-NS']]
+    # components = [P3a, P3b_long]
+    # analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
+    # analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
+    #
+    # # Comparisons 4 & 5
+    # event_conditions = {
+    #     'stimuli': [experiment],
+    #     'condition': ['S-S', 'NS-NS'],
+    #     'accuracy': ['correct'],
+    #     'time': ['T1', 'T2']
+    # }
+    # main_comparisons = [['lag1', 'lag3']]
+    # components = [P3a, P3b_long]
+    # analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
+    # analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
+    #
+    # # Comparisons 6
+    # event_conditions = {
+    #     'stimuli': [experiment],
+    #     'condition': ['S-S', 'NS-NS'],
+    #     'accuracy': ['correct'],
+    #     'lag': ['lag1', 'lag3']
+    # }
+    # main_comparisons = [['T1', 'T2']]
+    # components = [P3a, P3b_long]
+    # analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
+    # analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
+    #
+    # # Comparisons 7
+    # event_conditions = {
+    #     'stimuli': [experiment],
+    #     'condition': ['NS-S', 'S-NS'],
+    #     'time': ['T2'],
+    #     'lag': ['lag1', 'lag3']
+    # }
+    # main_comparisons = [['correct', 'attentional_blink']]
+    # components = [P3a, P3b]
+    # analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
+    # analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
+    #
+    # # Comparisons 8
+    # event_conditions = {
+    #     'stimuli': [experiment],
+    #     'time': ['T2'],
+    #     'lag': ['lag1', 'lag3']
+    # }
+    # main_comparisons = [['correct', 'attentional_blink'], ['correct', 'incorrect'], ['incorrect', 'attentional_blink']]
+    # components = [P3a, P3b]
+    # analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
+    # analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
+    #
+    # # Comparisons 9
+    # event_conditions = {
+    #     'stimuli': [experiment],
+    #     'time': ['T2'],
+    #     'lag': ['lag1']
+    # }
+    # main_comparisons = [['correct', 'attentional_blink']]
+    # components = [P3a_delayed, P3b_delayed]
+    # analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
+    # analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
 
     analysis.save_output('bootstraps_mean')

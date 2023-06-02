@@ -33,6 +33,7 @@ class BaseAnalysis:
         self.analysis_db = analysis_db
         self.data_db = data_db
         self.selected_events = None
+        self.excluded_events = None
         self.evoked = None
         self.epochs = None
         self.channels = None
@@ -40,10 +41,25 @@ class BaseAnalysis:
     def select_events(self, events):
         self.selected_events = events
 
+    def exclude_events(self, events):
+        self.excluded_events = events
+
     def select_channels(self, channels: list):
         self.channels = channels
 
     def epochs_to_evoked(self):
+        """Applies selection and exclusion criteria, then creates evoked."""
+
+        # if self.excluded_events is not None:
+        #     excluded_epochs = []
+        #     for event in self.excluded_events:
+        #         excluded_epochs += self.epochs[event].selection.tolist()
+        #
+        #     print(excluded_epochs)
+        #     print(len(self.epochs))
+        #     self.evoked = self.epochs.drop(excluded_epochs)
+        #     self.evoked = self.evoked[self.selected_events].average()
+
         if self.selected_events is None:
             self.evoked = self.epochs.average()
         else:
@@ -99,11 +115,16 @@ class Group(BaseAnalysis):
         del data
 
     def individuals_to_evokeds(self, exclude_list):
-        """converts epoch objects to separate evoked objects."""
+        """converts epoch objects to separate evoked objects.
+        @param exclude_list: list of individuals to exclude from evokeds
+        """
         self.evokeds = []
         for individual, epochs in self.epoch_objects.items():
             if individual not in exclude_list:
-                m = epochs[self.selected_events].average()
+                if self.selected_events is None:
+                    m = epochs.average()
+                else:
+                    m = epochs[self.selected_events].average()
                 self.evokeds.append(m)
 
     def check_for_missing_events(self, conditions):
@@ -152,29 +173,30 @@ class Group(BaseAnalysis):
         else:
             self.grand_evoked = mne.grand_average(self.evokeds)
 
-    def plot_conditions(self):
-        for block in ['S-S', 'NS-NS', 'S-NS', 'NS-S']:
-            for T in ['T1', 'T2']:
-                if T == 'T1':
-                    condition = f'scene/{block}/{T}/correct'
-                    self.select_events(condition)
-                    self.epochs_to_evoked()
-                    self.plot_heatmaps(title=condition.replace('/', '_'))
-                else:
-                    for lag in ['lag1', 'lag3']:
-                        for blink in ['correct', 'attentional_blink']:
-                            condition = f'scene/{block}/{T}/{lag}/{blink}'
-                            self.select_events(condition)
-                            self.epochs_to_evoked()
-                            self.plot_heatmaps(title=condition.replace('/', '_'), show=False)
+    # Unused
+    # def plot_conditions(self):
+    #     for block in ['S-S', 'NS-NS', 'S-NS', 'NS-S']:
+    #         for T in ['T1', 'T2']:
+    #             if T == 'T1':
+    #                 condition = f'scene/{block}/{T}/correct'
+    #                 self.select_events(condition)
+    #                 self.epochs_to_evoked()
+    #                 self.plot_heatmaps(title=condition.replace('/', '_'))
+    #             else:
+    #                 for lag in ['lag1', 'lag3']:
+    #                     for blink in ['correct', 'attentional_blink']:
+    #                         condition = f'scene/{block}/{T}/{lag}/{blink}'
+    #                         self.select_events(condition)
+    #                         self.epochs_to_evoked()
+    #                         self.plot_heatmaps(title=condition.replace('/', '_'), show=False)
 
 
 class Individual(BaseAnalysis):
     def __init__(self, analysis_db, data_db, filename):
         super().__init__(analysis_db, data_db)
         self.pickle_path = Path(data_db, filename)
-        self.filename = filename
-        self.pid = filename.stem
+        self.filename = Path(filename)
+        self.pid = Path(filename).stem
 
     def load_epochs(self):
         data = EEG_Participant.load(self.pickle_path)
@@ -276,10 +298,13 @@ class Statistics:
                     row['combination'] = combination
 
                     main_conditions = ['/'.join([main_condition, combination]) for main_condition in main_comparison]
+                    main_conditions = [self.expand_events(main_condition) for main_condition in main_conditions]
+
                     exclude_list = self.group_data.check_for_missing_events(conditions=main_conditions)
-                    # print(list(set(exclude_list)))
+
                     for n, main_condition in enumerate(main_comparison):
                         events = '/'.join([main_condition, combination])
+                        events = self.expand_events(events)
                         mean_windows = self.get_window_values(events, component, exclude_list, type, plotting=False)
                         means.append(mean_windows)
 
@@ -299,7 +324,8 @@ class Statistics:
                         # plotting on group data
                         title = f"{main_comparison[0]}vs{main_comparison[1]}_{combination.replace('/', '_')}_{component.name}"
 
-                        fig = plot_compare_evokeds(crops, title=title, show=False, show_sensors=True, ci=0.95, combine='mean')[0]
+                        fig = plot_compare_evokeds(crops, title=title, show=False, show_sensors=True, ci=0.95,
+                                                   combine='mean')[0]
 
                         # Plot coloured bar behind lines representing ERP component
                         if row['significance']:
@@ -316,7 +342,8 @@ class Statistics:
 
     def save_output(self, filename):
         df = pd.DataFrame(self.dict_list)
-        float_cols = df.select_dtypes("number").columns
+        # float_cols = df.select_dtypes("number").columns
+        float_cols = ['mean1', 'mean2', 'mean_diff']
         for col in float_cols:
             df[col] = df[col].apply(lambda x: format(x, '#.3g'))
 
@@ -325,6 +352,12 @@ class Statistics:
             dfo = pd.read_csv(pth)
             df = dfo.append(df)
         df.to_csv(pth, index=False)
+
+    @staticmethod
+    def expand_events(events):
+        events = [e.split('&') for e in events.split('/')]
+        events = list(itertools.product(*events))
+        return ['/'.join(x) for x in events]
 
     @staticmethod
     def bootstrap_paired_t_test(conditionA, conditionB, btval=10000):
@@ -406,7 +439,7 @@ if '__main__' in __name__:
     P3b_delayed = ERP_component(name='P3b_delayed', start=350, end=500, channels=['Pz', 'CPz', 'POz'])
 
     wd = Path(
-        '/Volumes/psgroups-2/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK')
+        '/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK')
 
     if not wd.exists():
         print(f'{wd} does not exist.')
@@ -416,7 +449,7 @@ if '__main__' in __name__:
 
     if experiment == 'scene':
         data_db = Path(wd, 'MNE_preprocessing_db')
-        analysis_db = Path(wd, 'MNE_analysis_db_scenes')
+        analysis_db = Path(wd, 'MNE ANALYSIS LAGS 2-4')
         individual_list = [Path(data_db, pickle).with_suffix('.pickle') for pickle in [
             '20220131_1255ppt1',
             '20220318_1418PPT1NEW',
@@ -443,7 +476,7 @@ if '__main__' in __name__:
         ]]
     elif experiment == 'dot':
         data_db = Path(wd, 'MNE_preprocessing_db')
-        analysis_db = Path(wd, 'MNE_analysis_db_dots')
+        analysis_db = Path(wd, 'MNE ANALYSIS LAGS 2-4')
 
         individual_list = [Path(data_db, pickle).with_suffix('.pickle') for pickle in [
             '20220202_0830PPT2',
@@ -473,122 +506,42 @@ if '__main__' in __name__:
 
     data = Group(analysis_db=analysis_db, data_db=data_db, individual_list=individual_list)
     data.load_epochs()
-    # data.plot_heatmaps('test', dpi=600)
-    # Comparisons A
+    plotting = True
+
+    # Comparison 1
     event_conditions = {
         'stimuli': [experiment],
         'accuracy': ['correct'],
-        'time': ['T1', 'T2'],
+        'time': ['T1'],
     }
-    main_comparisons = [['S-S', 'NS-NS']]
+    main_comparisons = [['S-S&S-NS', 'NS-NS&NS-S']]
     components = [P3a, P3b_long]
-    plotting = True
     analysis = Statistics(data=data, main_comp=main_comparisons, event_cond=event_conditions, components=components)
     analysis.compute(analysis.bootstrap_paired_t_test, type='mean', plotting=plotting)
+    analysis.save_output('comparisons_1')
 
-    # Comparisons B
+    # Comparison 2,3,4
     event_conditions = {
         'stimuli': [experiment],
         'accuracy': ['correct'],
         'time': ['T2'],
+        'lag': ['lag2&lag3&lag4']
     }
-    main_comparisons = [['S-S', 'NS-S'], ['NS-NS', 'S-NS']]
+    main_comparisons = [['S-S', 'NS-NS'], ['S-S', 'NS-S'], ['NS-NS', 'S-NS']]
     components = [P3a, P3b_long]
-    analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
+    analysis = Statistics(data=data, main_comp=main_comparisons, event_cond=event_conditions, components=components)
+    analysis.compute(analysis.bootstrap_paired_t_test, type='mean', plotting=plotting)
+    analysis.save_output('comparisons_2-4')
 
-    # Comparisons C & D
+    # Comparison 5,6,7,8
     event_conditions = {
         'stimuli': [experiment],
-        'condition': ['S-S', 'NS-NS', 'S-NS', 'NS-S'],
         'accuracy': ['correct'],
+        'condition': ['S-S', 'NS-NS', 'S-NS', 'NS-S'],
+        'lag': ['lag2&lag3&lag4']
     }
     main_comparisons = [['T1', 'T2']]
     components = [P3a, P3b_long]
-    analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
-
-    # # Comparisons 1 & 2
-    # event_conditions = {
-    #     'stimuli': [experiment],
-    #     'accuracy': ['correct'],
-    #     'time': ['T1', 'T2'],
-    #     'lag': ['lag1', 'lag3']
-    # }
-    # main_comparisons = [['S-S', 'NS-NS']]
-    # components = [P3a, P3b_long]
-    # plotting = True
-    # analysis = Statistics(data=data, main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    # analysis.compute(analysis.bootstrap_paired_t_test, type='mean', plotting=plotting)
-    #
-    # # Comparisons 3
-    # event_conditions = {
-    #     'stimuli': [experiment],
-    #     'accuracy': ['correct'],
-    #     'time': ['T2'],
-    #     'lag': ['lag1', 'lag3']
-    # }
-    # main_comparisons = [['S-S', 'NS-S'], ['NS-S', 'S-NS'], ['NS-NS', 'S-NS']]
-    # components = [P3a, P3b_long]
-    # analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    # analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
-    #
-    # # Comparisons 4 & 5
-    # event_conditions = {
-    #     'stimuli': [experiment],
-    #     'condition': ['S-S', 'NS-NS'],
-    #     'accuracy': ['correct'],
-    #     'time': ['T1', 'T2']
-    # }
-    # main_comparisons = [['lag1', 'lag3']]
-    # components = [P3a, P3b_long]
-    # analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    # analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
-    #
-    # # Comparisons 6
-    # event_conditions = {
-    #     'stimuli': [experiment],
-    #     'condition': ['S-S', 'NS-NS'],
-    #     'accuracy': ['correct'],
-    #     'lag': ['lag1', 'lag3']
-    # }
-    # main_comparisons = [['T1', 'T2']]
-    # components = [P3a, P3b_long]
-    # analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    # analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
-    #
-    # # Comparisons 7
-    # event_conditions = {
-    #     'stimuli': [experiment],
-    #     'condition': ['NS-S', 'S-NS'],
-    #     'time': ['T2'],
-    #     'lag': ['lag1', 'lag3']
-    # }
-    # main_comparisons = [['correct', 'attentional_blink']]
-    # components = [P3a, P3b]
-    # analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    # analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
-    #
-    # # Comparisons 8
-    # event_conditions = {
-    #     'stimuli': [experiment],
-    #     'time': ['T2'],
-    #     'lag': ['lag1', 'lag3']
-    # }
-    # main_comparisons = [['correct', 'attentional_blink'], ['correct', 'incorrect'], ['incorrect', 'attentional_blink']]
-    # components = [P3a, P3b]
-    # analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    # analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
-    #
-    # # Comparisons 9
-    # event_conditions = {
-    #     'stimuli': [experiment],
-    #     'time': ['T2'],
-    #     'lag': ['lag1']
-    # }
-    # main_comparisons = [['correct', 'attentional_blink']]
-    # components = [P3a_delayed, P3b_delayed]
-    # analysis.set_conditions(main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    # analysis.compute(analysis.bootstrap_paired_t_test, type="mean", plotting=plotting)
-
-    analysis.save_output('bootstraps_mean')
+    analysis = Statistics(data=data, main_comp=main_comparisons, event_cond=event_conditions, components=components)
+    analysis.compute(analysis.bootstrap_paired_t_test, type='mean', plotting=plotting)
+    analysis.save_output('comparisons_5-8')

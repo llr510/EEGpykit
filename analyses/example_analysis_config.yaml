@@ -1,0 +1,36 @@
+---
+analyses:
+  1:
+    event_conditions:
+      "stimuli": [ "dot" ]
+      "accuracy": [ "correct" ]
+      "time": [ "T1" ]
+    main_comparisons: [ [ 'S-S&S-NS', 'NS-NS&NS-S' ] ]
+
+  2-4:
+    event_conditions:
+      "stimuli": [ "dot" ]
+      "accuracy": [ "correct" ]
+      "time": [ "T2" ]
+      "lag": [ "lag2&lag3&lag4" ]
+    main_comparisons: [ [ "S-S","NS-NS" ],[ "S-S","NS-S" ],[ "NS-NS","S-NS" ] ]
+
+  5-8:
+    event_conditions:
+      'stimuli': [ "dot" ]
+      'accuracy': [ 'correct' ]
+      'condition': [ 'S-S', 'NS-NS', 'S-NS', 'NS-S' ]
+      'lag': [ 'lag2&lag3&lag4' ]
+    main_comparisons: [ ['T1', 'T2'] ]
+
+components:
+  P3a:
+    "name": "P3a"
+    "start": 280
+    "end": 380
+    "channels": [ "Fp1" ]
+  "P3b_long":
+    "name": "P3b_long"
+    "start": 250
+    "end": 500
+    "channels": [ "Pz", "CPz", "POz" ]

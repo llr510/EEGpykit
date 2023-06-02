@@ -8,7 +8,7 @@ import itertools
 from scipy import stats
 import pandas as pd
 from tqdm import tqdm
-
+import yaml
 import sys
 
 sys.path.append('utils')
@@ -286,7 +286,7 @@ class Statistics:
 
     def compute(self, func=stats.ttest_rel, type='mean', plotting=False):
         """computes statistics for all permutations of events and ERP components of interest"""
-        for main_comparison in main_comparisons:
+        for main_comparison in self.main_comp:
             for component in self.components:
                 for combination in self.combinations:
                     combination = '/'.join(combination)
@@ -309,7 +309,7 @@ class Statistics:
                         means.append(mean_windows)
 
                         row[f'condition{n + 1}'] = main_condition
-                        row[f'mean{n + 1}'] = np.mean(mean_windows)
+                        row[f'mean{n + 1} (µV)'] = np.mean(mean_windows)
 
                         if plotting:
                             crops[main_condition] = self.get_window_values(events, component, exclude_list, type='crop')
@@ -342,12 +342,12 @@ class Statistics:
 
     def save_output(self, filename):
         df = pd.DataFrame(self.dict_list)
-        # float_cols = df.select_dtypes("number").columns
-        float_cols = ['mean1', 'mean2', 'mean_diff']
-        for col in float_cols:
-            df[col] = df[col].apply(lambda x: format(x, '#.3g'))
+        volt_cols = ['mean1 (µV)', 'mean2 (µV)', 'mean_diff (µV)']
+        # convert from volts to microvolts and then round to 3 decimal places
+        for col in volt_cols:
+            df[col] = df[col].apply(lambda x: format((x * 1000000), '#.3g'))
 
-        pth = Path(self.group_data.analysis_db, f"{filename}_{len(self.group_data.epoch_objects)}.csv")
+        pth = Path(self.group_data.analysis_db, f"{filename}_n{len(self.group_data.epoch_objects)}.csv")
         if pth.exists():
             dfo = pd.read_csv(pth)
             df = dfo.append(df)
@@ -355,6 +355,7 @@ class Statistics:
 
     @staticmethod
     def expand_events(events):
+        """For when multiple events are selected with &, expand them into a nested list"""
         events = [e.split('&') for e in events.split('/')]
         events = list(itertools.product(*events))
         return ['/'.join(x) for x in events]
@@ -386,8 +387,11 @@ class Statistics:
             significance = True
         else:
             significance = False
-        return {'actualP': actualP, 'actualT': actualT, 'bt_95th_T': bt_95th_T, 'mean_diff': mean_diff,
-                'significance': significance}
+        return {'actualP': round(actualP, 2),
+                'actualT': round(actualT, 2),
+                'bt_95th_T': round(bt_95th_T, 2),
+                'mean_diff (µV)': mean_diff,
+                'significance': round(significance, 2)}
 
     @staticmethod
     def paired_t_test(a, b):
@@ -396,7 +400,7 @@ class Statistics:
             significance = True
         else:
             significance = False
-        return {'t': t_val, 'p': t_val, 'sig': significance}
+        return {'t': round(t_val, 2), 'p': round(t_val, 2), 'sig': round(significance, 2)}
 
 
 def plot_individuals(filename, individuals, con_dict, components, main_comparisons):
@@ -430,14 +434,6 @@ def plot_individuals(filename, individuals, con_dict, components, main_compariso
 
 
 if '__main__' in __name__:
-    # P3a = ERP_component(name='P3a', start=250, end=280, channels=['Fp1'])
-    P3a = ERP_component(name='P3a', start=280, end=380, channels=['Fp1'])
-    P3b_long = ERP_component(name='P3b_long', start=250, end=500, channels=['Pz', 'CPz', 'POz'])
-    P3b = ERP_component(name='P3b', start=250, end=350, channels=['Pz', 'CPz', 'POz'])
-
-    P3a_delayed = ERP_component(name='P3a_delayed', start=350, end=450, channels=['Fp1'])
-    P3b_delayed = ERP_component(name='P3b_delayed', start=350, end=500, channels=['Pz', 'CPz', 'POz'])
-
     wd = Path(
         '/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK')
 
@@ -446,10 +442,21 @@ if '__main__' in __name__:
         quit()
 
     experiment = 'scene'
+    analysis_db = Path(wd, 'MNE ANALYSIS LAG1 & LAG3')
+    config_fname = Path(analysis_db, f'{experiment}s_config.yaml')
+
+    with open(config_fname, 'r') as f:
+        analysis_config = yaml.safe_load(f)
+
+    components = []
+    for comp in analysis_config['components'].values():
+        components.append(
+            ERP_component(name=comp['name'], start=comp['start'], end=comp['end'], channels=comp['channels'])
+        )
 
     if experiment == 'scene':
         data_db = Path(wd, 'MNE_preprocessing_db')
-        analysis_db = Path(wd, 'MNE ANALYSIS LAGS 2-4')
+
         individual_list = [Path(data_db, pickle).with_suffix('.pickle') for pickle in [
             '20220131_1255ppt1',
             '20220318_1418PPT1NEW',
@@ -476,7 +483,7 @@ if '__main__' in __name__:
         ]]
     elif experiment == 'dot':
         data_db = Path(wd, 'MNE_preprocessing_db')
-        analysis_db = Path(wd, 'MNE ANALYSIS LAGS 2-4')
+        # analysis_db = Path(wd, 'MNE ANALYSIS LAGS 2-4')
 
         individual_list = [Path(data_db, pickle).with_suffix('.pickle') for pickle in [
             '20220202_0830PPT2',
@@ -508,40 +515,11 @@ if '__main__' in __name__:
     data.load_epochs()
     plotting = True
 
-    # Comparison 1
-    event_conditions = {
-        'stimuli': [experiment],
-        'accuracy': ['correct'],
-        'time': ['T1'],
-    }
-    main_comparisons = [['S-S&S-NS', 'NS-NS&NS-S']]
-    components = [P3a, P3b_long]
-    analysis = Statistics(data=data, main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    analysis.compute(analysis.bootstrap_paired_t_test, type='mean', plotting=plotting)
-    analysis.save_output('comparisons_1')
+    for name, settings in analysis_config['analyses'].items():
+        print('Comparison(s) ', name)
 
-    # Comparison 2,3,4
-    event_conditions = {
-        'stimuli': [experiment],
-        'accuracy': ['correct'],
-        'time': ['T2'],
-        'lag': ['lag2&lag3&lag4']
-    }
-    main_comparisons = [['S-S', 'NS-NS'], ['S-S', 'NS-S'], ['NS-NS', 'S-NS']]
-    components = [P3a, P3b_long]
-    analysis = Statistics(data=data, main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    analysis.compute(analysis.bootstrap_paired_t_test, type='mean', plotting=plotting)
-    analysis.save_output('comparisons_2-4')
-
-    # Comparison 5,6,7,8
-    event_conditions = {
-        'stimuli': [experiment],
-        'accuracy': ['correct'],
-        'condition': ['S-S', 'NS-NS', 'S-NS', 'NS-S'],
-        'lag': ['lag2&lag3&lag4']
-    }
-    main_comparisons = [['T1', 'T2']]
-    components = [P3a, P3b_long]
-    analysis = Statistics(data=data, main_comp=main_comparisons, event_cond=event_conditions, components=components)
-    analysis.compute(analysis.bootstrap_paired_t_test, type='mean', plotting=plotting)
-    analysis.save_output('comparisons_5-8')
+        analysis = Statistics(data=data,
+                              main_comp=settings['main_comparisons'], event_cond=settings['event_conditions'],
+                              components=components)
+        analysis.compute(analysis.bootstrap_paired_t_test, type='mean', plotting=plotting)
+        analysis.save_output(f'comparisons_{name}')

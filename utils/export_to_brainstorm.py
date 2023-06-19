@@ -21,35 +21,40 @@ def recode_label(event):
     return tags
 
 
-n = 5
-inf = Path(
-    f'/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG_MAMMO_EXPERMENT'
-    f'/MNE_preprocessing_db/EEGTraining_Rad{n}/EEGTraining_Rad{n}_epochs_output.pickle')
+if '__main__' in __name__:
+    rec = 2
+    # f'EEGTraining_Rad{n}/EEGTraining_Rad{n}_epochs_output.pickle'
+    wd = Path('/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG_MAMMO_EXPERMENT/MNE_preprocessing_db/')
 
-outf = inf.with_suffix('.fif')
+    for n in range(1, 17):
+        if n == 3:
+            continue
+        inf = Path(wd, f'EEGTraining_Sub{n}Rec{rec}/EEGTraining_Sub{n}Rec{rec}_epochs_output.pickle')
 
-with open(inf, 'rb') as f:
-    dat = pickle.load(f)
+        outf = inf.with_suffix('.fif')
 
-if type(dat) == dict:
-    epochs = dat['all']
+        with open(inf, 'rb') as f:
+            dat = pickle.load(f)
 
-ids = epochs.events[:, 2]
-assert len(ids) == len(epochs)
-labels = epochs.event_id
-labels = {v: k for k, v in labels.items()}
+        if type(dat) == dict:
+            epochs = dat['all']
 
-tags = []
-epochs_n = []
-for i in range(len(ids)):
-    epochs_n.append(i + 1)
-    event = labels[ids[i]]
+        ids = epochs.events[:, 2]
+        assert len(ids) == len(epochs)
+        labels = epochs.event_id
+        labels = {v: k for k, v in labels.items()}
 
-    tag = recode_label(event)
-    tags.append(tag)
+        tags = []
+        epochs_n = []
+        for i in range(len(ids)):
+            epochs_n.append(i + 1)
+            event = labels[ids[i]]
 
-df = pd.DataFrame({'epoch': epochs_n, 'label': tags})
-df.to_csv(inf.with_suffix('.csv'), index=False)
+            tag = recode_label(event)
+            tags.append(tag)
 
-epochs.times.flags['WRITEABLE'] = False
-epochs.save(outf, overwrite=True)
+        df = pd.DataFrame({'epoch': epochs_n, 'label': tags})
+        df.to_csv(inf.with_suffix('.csv'), index=False)
+
+        epochs.times.flags['WRITEABLE'] = False
+        epochs.save(outf, overwrite=True)

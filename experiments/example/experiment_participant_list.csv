@@ -1,0 +1,2 @@
+ppt_num,data_path,pid,EOG_channel,status,ref_channel
+1,/path/to/individual/data/directory,20220318_1418PPT1,VEOG,,Cz

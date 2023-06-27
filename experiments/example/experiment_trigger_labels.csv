@@ -1,0 +1,5 @@
+label,value,active
+event1/view,11,1
+event2/view,12,1
+event1/respond,21,1
+event2/respond,22,1

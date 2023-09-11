@@ -103,11 +103,11 @@ class dialogue_window:
 
         # Input
         self.participant_list_filepath = file_path_box(self.root, 'Participant List File:',
-                                                       '/Users/llr510/PycharmProjects/CNT_EEG_preprocessing_with_MNE_and_FASTER/experiments/e1/experiment_participant_list_dots.csv')
+                                                       '/Users/llr510/PycharmProjects/EEGpykit/experiments/e1/experiment_participant_list_dots.csv')
         self.output_path = dir_path_box(self.root, 'Output DB:',
                                         '/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/MNE_preprocessing_db')
         self.trigger_labels = file_path_box(self.root, 'Trigger labels:',
-                                            '/Users/llr510/PycharmProjects/CNT_EEG_preprocessing_with_MNE_and_FASTER/experiments/e1/experiment_trigger_labels.csv')
+                                            '/Users/llr510/PycharmProjects/EEGpykit/experiments/e1/experiment_trigger_labels.csv')
         self.time_vals = multi_input_box(self.root, ['tmin', 'bmax', 'tmax'],
                                          default=['-0.2', '0', '0.8'])
         self.additional_events_fname = input_box(self.root, 'additional_events_fname', 'new_markers')
@@ -121,7 +121,9 @@ class dialogue_window:
         button_frame = tk.Frame(self.root)
         button_frame.pack(expand=True, side=tk.BOTTOM)
         self.submit_button = ttk.Button(button_frame, text="Submit", command=self.submit)
-        self.submit_button.pack(expand=True, pady=20)
+        self.submit_button.pack(expand=True, pady=20, side=tk.LEFT)
+        self.cancel_button = ttk.Button(button_frame, text="Cancel", command=exit)
+        self.cancel_button.pack(expand=True, pady=20, side=tk.RIGHT)
 
     def submit(self):
         """Close dialogue box and get output as a dict."""

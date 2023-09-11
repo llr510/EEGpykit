@@ -365,6 +365,11 @@ class Statistics:
         """
         Bootstrapping: Random sampling with replacement
         Written by Emma Raat. Modified by Lyndon Rakusen
+
+        @param conditionA:
+        @param conditionB:
+        @param btval:
+        @return:
         """
         data_array = conditionA + conditionB
         data_array = np.asarray(data_array, dtype=object)
@@ -404,6 +409,15 @@ class Statistics:
 
 
 def plot_individuals(filename, individuals, con_dict, components, main_comparisons):
+    """
+
+    @param filename:
+    @param individuals:
+    @param con_dict:
+    @param components:
+    @param main_comparisons:
+    @return:
+    """
     combinations = list(itertools.product(*con_dict.values()))
     dict_list = []
     for individual in individuals:

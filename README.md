@@ -1,4 +1,4 @@
-# MNE EEG Preprocessing Project
+# EEGpykit: An MNE EEG Preprocessing and Analysis Project
 ## Key Scripts:
 ### EEGTraining_testSessions.py
 - Creates updated trigger files for data based on behavioural performance

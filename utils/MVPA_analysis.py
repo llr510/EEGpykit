@@ -20,6 +20,12 @@ from mne.decoding import (
 
 
 def recode_label(event, sep='/'):
+    """
+
+    @param event: epochs.event_id.items
+    @param sep:
+    @return:
+    """
     labels = ['Rate', 'View',
               'Global', 'Obvious', 'Subtle', 'Normal',
               'Correct', 'Incorrect', 'Missed',
@@ -36,25 +42,53 @@ def recode_label(event, sep='/'):
 
 
 def csp_score(epochs, X, y):
+    """
+    Common spatial pattern (CSP) algorithm
+    https://en.wikipedia.org/wiki/Common_spatial_pattern
+
+    @param epochs: mne epochs object
+    @param X: 3d array of n_epochs, n_meg_channels, n_times
+    @param y: array of epoch events
+    @return:
+    """
     csp = CSP(n_components=3, norm_trace=False)
     clf_csp = make_pipeline(csp, LinearModel(LogisticRegression(solver="liblinear")))
     scores = cross_val_multiscore(clf_csp, X, y, cv=5, n_jobs=None)
     print("CSP: %0.1f%%" % (100 * scores.mean(),))
 
     csp.fit(X, y)
-    csp.plot_patterns(epochs.info)
-    csp.plot_filters(epochs.info, scalings=1e-9)
+    fig_pattern = csp.plot_patterns(epochs.info)
+    fig_filters = csp.plot_filters(epochs.info, scalings=1e-9)
+    plt.figure(fig_filters.number)
     plt.show(block=True)
 
 
-def temporal_decoding_plot(epochs, X, y):
-    # We will train the classifier on all left visual vs auditory trials on MEG
+def temporal_decoding_plot(epochs, X, y, filename):
+    """
+    https://mne.tools/stable/auto_tutorials/machine-learning/50_decoding.html
 
+    This strategy consists in fitting a multivariate predictive model on each time instant and evaluating its
+    performance at the same instant on new epochs. The mne.decoding.SlidingEstimator will take as input a pair of
+    features X and targets y, where X has more than 2 dimensions. For decoding over time the data X is the epochs data of
+    shape n_epochs × n_channels × n_times. As the last dimension X of is the time, an estimator will be fit on every
+    time instant.
+
+    This approach is analogous to SlidingEstimator-based approaches in fMRI, where here we are interested in when one
+    can discriminate experimental conditions and therefore figure out when the effect of interest happens.
+
+    When working with linear models as estimators, this approach boils down to estimating a discriminative spatial
+    filter for each time instant.
+
+    @param epochs: mne epochs object
+    @param X: 3d array of n_epochs, n_meg_channels, n_times
+    @param y: array of epoch events
+    @param filename: plot filename for saving
+    """
     clf = make_pipeline(StandardScaler(), LogisticRegression(solver="liblinear"))
 
-    time_decod = SlidingEstimator(clf, n_jobs=None, scoring="roc_auc", verbose=True)
+    time_decode = SlidingEstimator(clf, n_jobs=None, scoring="roc_auc", verbose=True)
     # here we use cv=3 just for speed
-    scores = cross_val_multiscore(time_decod, X, y, cv=5, n_jobs=None)
+    scores = cross_val_multiscore(time_decode, X, y, cv=5, n_jobs=None)
 
     # Mean scores across cross-validation splits
     scores = np.mean(scores, axis=0)
@@ -68,17 +102,25 @@ def temporal_decoding_plot(epochs, X, y):
     ax.legend()
     ax.axvline(0.0, color="k", linestyle="-")
     ax.set_title("Sensor space decoding")
+    plt.savefig(filename, dpi=150)
     plt.show(block=True)
 
 
-def temporal_decoding_plot_2(epochs, X, y):
+def spatiotemporal_decoding_plot(epochs, X, y):
+    """
+
+    @param epochs: mne epochs object
+    @param X: 3d array of n_epochs, n_meg_channels, n_times
+    @param y: array of epoch events
+    @return:
+    """
     clf = make_pipeline(
         StandardScaler(), LinearModel(LogisticRegression(solver="liblinear"))
     )
-    time_decod = SlidingEstimator(clf, n_jobs=None, scoring="roc_auc", verbose=True)
-    time_decod.fit(X, y)
+    time_decode = SlidingEstimator(clf, n_jobs=None, scoring="roc_auc", verbose=True)
+    time_decode.fit(X, y)
 
-    coef = get_coef(time_decod, "patterns_", inverse_transform=True)
+    coef = get_coef(time_decode, "patterns_", inverse_transform=True)
     evoked_time_gen = mne.EvokedArray(coef, epochs.info, tmin=epochs.times[0])
     joint_kwargs = dict(ts_args=dict(time_unit="s"), topomap_args=dict(time_unit="s"))
     evoked_time_gen.plot_joint(
@@ -87,7 +129,7 @@ def temporal_decoding_plot_2(epochs, X, y):
 
 
 if '__main__' in __name__:
-    pnum = 5
+    pnum = 2
     epochs = mne.read_epochs(f'/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG_MAMMO_EXPERMENT'
                              f'/MNE_preprocessing_db/EEGTraining_Rad{pnum}/EEGTraining_Rad{pnum}_epochs_output.fif')
 
@@ -111,12 +153,11 @@ if '__main__' in __name__:
     var1 = list(epochs[var1_events].event_id.values())
     var2 = list(epochs[var2_events].event_id.values())
 
-    X = epochs.get_data()  # MEG signals: n_epochs, n_meg_channels, n_times
+    X = epochs.get_data()  # MEG signals: n_epochs, n_eeg_channels, n_times
     y = epochs.events[:, 2]  # target: auditory left vs visual left
     y[np.argwhere(np.isin(y, var1)).ravel()] = 0
     y[np.argwhere(np.isin(y, var2)).ravel()] = 1
 
-    csp_score(epochs, X, y)
-    temporal_decoding_plot(epochs, X, y)
-
-
+    # csp_score(epochs, X, y)
+    # temporal_decoding_plot(epochs, X, y, filename=f'../analyses/temporal_decoding_Rad{pnum}.png')
+    spatiotemporal_decoding_plot(epochs, X, y)

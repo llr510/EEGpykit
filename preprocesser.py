@@ -26,12 +26,17 @@ from datetime import datetime
 from typing import Union
 from utils.dialogue_box import dialogue_window
 import sys
+
 sys.path.append('utils')
 
 
 def resample_and_bandpass_raw(raw_fname, ref_channel, eog_channel, montage,
                               sfreq=200, hfreq=40, lfreq=0.5, plotting=False, report=None):
     """
+    Loads raw EEG data from ANT CNT or other formats, bandpasses it, and saves a report with figures.
+    Our data used EOG for blink detection, but had Vertical and Horizontal EOG mixed up sometimes.
+    Loads the correct one and renames it VEOG.
+
     :param raw_fname: str or PosixPath
     :param ref_channel: str
     :param eog_channel:
@@ -46,7 +51,7 @@ def resample_and_bandpass_raw(raw_fname, ref_channel, eog_channel, montage,
     event_fname = Path(raw_fname).with_suffix('.trg')
     assert raw_fname.exists()
     if raw_fname.suffix != '.cnt':
-        raw = io.read_raw(str(raw_fname), preload=True, eog=[eog_channel])
+        raw = io.read_raw(str(raw_fname), preload=True)
     else:
         raw = read_raw_antcnt(str(raw_fname), preload=True, eog=[eog_channel])
     events = read_events_trg(event_fname)
@@ -103,7 +108,7 @@ def preprocess_with_faster(raw, events, event_ids, picks, tmin=-0.5, bmax=0, tma
     """
 
     @param raw:
-    @param events:
+    @param events: array of events
     @param event_ids:
     @param picks:
     @param tmin:
@@ -274,35 +279,27 @@ class EEG_Participant:
     This information is then used to filter the raw recording and then preprocess with FASTER.
     The epochs object can then be used for further analysis.
 
-    Parameters
-    ----------
-    pid : str
-        The participants string identifier and name of recording data files.
-    ppt_num : int
-        The participant's integer identifier e.g 1.
-    data_path : object
-        The path to directory containing participant raw data (eeg, triggers, extra triggers)
-    ref_channel : str
-        The channel acting as the reference electrode.
-    EOG_channel : str
-        The name of the EOG channel used for blink detection.
-    event_ids : dict
-        The basic trigger values and their labels in the raw data.
-        Any triggers and associated data not listed will be dropped at the preprocess_RAW stage.
-    montage : mne.channels.DigMontage
-        The montage object used to map the electrodes in 3d space.
-    status : str
-        meta info about the participant's progress through preprocessing e.g 'raw_filtered'
-    output_path : object
-        The location of the preprocessing database where all the outputs end up.
+    @param pid: The participants string identifier and name of recording data files.
+    @param ppt_num: The participant's integer identifier e.g 1.
+    @param data_path: The path to directory containing participant raw data (eeg, triggers, extra triggers)
+    @param ref_channel: The channel acting as the reference electrode.
+    @param EOG_channel: The name of the EOG channel used for blink detection.
+    @param event_ids: The basic trigger values and their labels in the raw data.
+    Any triggers and associated data not listed will be dropped at the preprocess_RAW stage.
+    @param montage: The montage object used to map the electrodes in 3d space.
+    @param status: meta info about the participant's progress through preprocessing e.g 'raw_filtered'
+    @param output_path: The location of the preprocessing database where all the outputs end up.
     """
 
-    def __init__(self, pid: str, ppt_num: int, data_path: Union[str, PosixPath], ref_channel: str,
+    def __init__(self, pid: str, ppt_num: int, data_path: Union[str, PosixPath], data_format: str, ref_channel: str,
                  EOG_channel: str, event_ids: dict, montage: mne.channels.DigMontage, status: str,
                  output_path: Union[str, PosixPath]):
+        """
+        Initialises participant object
+        """
         self.status = status
         self.pid = pid
-        self.raw_fname = Path(data_path, pid).with_suffix('.cnt')
+        self.raw_fname = Path(data_path, pid).with_suffix(data_format)
         self.filename = Path(output_path, pid).with_suffix('.pickle')
         self.ppt_num = ppt_num
         self.data_path = data_path
@@ -323,13 +320,10 @@ class EEG_Participant:
         Uses the ANT .cnt file reader to read raw eeg data. Needs modifying to take other data formats.
         Then filters and resamples data.
 
-        :param sfreq: int
-            Resampling frequency.
-        :param hfreq: int
-            Highpass filter frequency.
-        :param lfreq: float
-            Lowpass filter frequency.
-        :param plotting: bool
+        @param sfreq: Resampling frequency
+        @param hfreq: lowpass filter frequency.
+        @param lfreq: highpass filter frequency.
+        @param plotting: show plots or not
         """
         self.RAW, self.events, self.picks, self.report = resample_and_bandpass_raw(
             raw_fname=self.raw_fname,
@@ -459,7 +453,8 @@ class EEG_Experiment:
 
         for idx, row in self.exp_file.iterrows():
             self.participants.append(
-                EEG_Participant(pid=row.pid, ppt_num=row.ppt_num, data_path=row.data_path, ref_channel=row.ref_channel,
+                EEG_Participant(pid=row.pid, ppt_num=row.ppt_num, data_path=row.data_path, data_format=row.raw_format,
+                                ref_channel=row.ref_channel,
                                 EOG_channel=row.EOG_channel, event_ids=self.event_ids, montage=self.montage,
                                 status=row.status, output_path=output_path))
 
@@ -484,7 +479,6 @@ class EEG_Experiment:
             del participant.RAW
 
     def preprocess_RAWs(self, tmin, bmax, tmax, additional_events_fname=None, plotting=False, skip_existing=True):
-
         for participant in self.participants:
             if participant.status == '':
                 print(f'{participant.pid} raw data not filtered. Skipping')
@@ -503,8 +497,13 @@ class EEG_Experiment:
                 print(f'{participant.pid} epoch data already exists. Skipping')
                 continue
 
-            if additional_events_fname is not None:
+            if 'extra_events_path' in self.exp_file.columns:
+                additional_events_fname = self.exp_file[self.exp_file['ppt_num'] == int(participant.ppt_num)][
+                    'extra_events_path'].values[0]
+                participant.replace_events(Path(additional_events_fname))
+            elif additional_events_fname is not None:
                 participant.replace_events(Path(participant.data_path, additional_events_fname).with_suffix('.csv'))
+
             participant.preprocess_RAW(tmin, bmax, tmax, plotting)
             participant.save()
             # Clear RAW from memory otherwise we might run out if we load a lot of participants
@@ -512,7 +511,14 @@ class EEG_Experiment:
 
 
 def run_with_UI():
-    box = dialogue_window(title='Preprocessing Setup')
+    """
+    Run preprocessor over experiment_participant_list csv,
+    building EEG_Experiment object and outputting preprocessed eeg data.
+    """
+    box = dialogue_window(title='Preprocessing Setup',
+                          default_plist='/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/experiment_participant_list.csv',
+                          default_output='/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/output',
+                          default_trg_labels='/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/experiment_trigger_labels.csv')
     box.show()
     settings = box.get_output()
     print(settings)
@@ -540,3 +546,7 @@ def run_with_UI():
 
 if '__main__' in __name__:
     run_with_UI()
+
+    # default_plist = '/Users/llr510/PycharmProjects/EEGpykit/experiments/e1/experiment_participant_list_dots.csv'
+    # default_output = '/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/MNE_preprocessing_db'
+    # default_trg_labels = '/Users/llr510/PycharmProjects/EEGpykit/experiments/e1/experiment_trigger_labels.csv'

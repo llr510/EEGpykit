@@ -93,7 +93,9 @@ class tick_button:
 
 
 class dialogue_window:
-    def __init__(self, title):
+    def __init__(self, title, default_plist='', default_output='', default_trg_labels='',
+                 default_minmax=['-0.2', '0', '0.8']):
+
         self.output = None
         self.title = title
 
@@ -102,15 +104,12 @@ class dialogue_window:
         self.fields = []
 
         # Input
-        self.participant_list_filepath = file_path_box(self.root, 'Participant List File:',
-                                                       '/Users/llr510/PycharmProjects/EEGpykit/experiments/e1/experiment_participant_list_dots.csv')
-        self.output_path = dir_path_box(self.root, 'Output DB:',
-                                        '/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/MNE_preprocessing_db')
-        self.trigger_labels = file_path_box(self.root, 'Trigger labels:',
-                                            '/Users/llr510/PycharmProjects/EEGpykit/experiments/e1/experiment_trigger_labels.csv')
+        self.participant_list_filepath = file_path_box(self.root, 'Participant List File:', default_plist)
+        self.output_path = dir_path_box(self.root, 'Output DB:', default_output)
+        self.trigger_labels = file_path_box(self.root, 'Trigger labels:', default_trg_labels)
         self.time_vals = multi_input_box(self.root, ['tmin', 'bmax', 'tmax'],
-                                         default=['-0.2', '0', '0.8'])
-        self.additional_events_fname = input_box(self.root, 'additional_events_fname', 'new_markers')
+                                         default=default_minmax)
+        self.additional_events_fname = input_box(self.root, 'additional_events_fname', '')
 
         # Check boxes
         self.filter_check = tick_button(self.root, 'Filter raw', True)

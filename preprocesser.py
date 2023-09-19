@@ -45,7 +45,7 @@ def resample_and_bandpass_raw(raw_fname, ref_channel, eog_channel, montage,
     :param hfreq: float
     :param lfreq: float
     :param plotting: bool
-    :param report:
+    :param report: mne.Report object
     :return: RawANTCNT,
     """
     event_fname = Path(raw_fname).with_suffix('.trg')
@@ -106,17 +106,19 @@ def resample_and_bandpass_raw(raw_fname, ref_channel, eog_channel, montage,
 def preprocess_with_faster(raw, events, event_ids, picks, tmin=-0.5, bmax=0, tmax=1, plotting=False,
                            report=None):
     """
+    Use FASTER Protocol to interpolate noisy channels on epoch by epoch basis.
+    https://github.com/wmvanvliet/mne-faster
 
-    @param raw:
+    @param raw: Raw EEG mne object
     @param events: array of events
-    @param event_ids:
-    @param picks:
-    @param tmin:
-    @param bmax:
-    @param tmax:
-    @param plotting:
-    @param report:
-    @return:
+    @param event_ids: string ids of events
+    @param picks: selected channels to preprocess
+    @param tmin: epoch baseline start time before time 0
+    @param bmax: end of baseline
+    @param tmax: end of epoch
+    @param plotting: show evoked before and after plots - mostly handled by report now
+    @param report: mne object for html output report
+    @return: epochs, evoked_before, evoked_after, logdict, report
     """
     plt.close('all')
     logdict = {}
@@ -210,7 +212,9 @@ def preprocess_with_faster(raw, events, event_ids, picks, tmin=-0.5, bmax=0, tma
 def get_event_counts(epochs):
     """
     Counts all events in an epoch object.
-    Outputs a dictionary with event counts by event labels.
+
+    @param epochs: MNE epochs object
+    @return: dictionary with event counts by event ids.
     """
     ids = {event: event_id for event_id, event in epochs.event_id.items()}
     events = [ids[e[2]] for e in epochs.events]
@@ -220,9 +224,14 @@ def get_event_counts(epochs):
 
 def add_to_log_csv(logdict, output_path):
     """
-    Takes log dictionary and saves it to a csv.
+    Superseded by mne.Report()
+
+    Takes log dictionary from preprocess_with_faster and saves it to a csv.
     If csv already exists append a row.
     Participant already in dict, overwrite their row with the new one.
+
+    @param logdict: dictionary with header as key and values as list of rows.
+    @param output_path: path to preprocessing log file
     """
     log_path = Path(output_path, 'preprocessing_log.csv')
     logdict['data'] = str(datetime.now()).split('.')[0]
@@ -242,8 +251,13 @@ def add_to_log_csv(logdict, output_path):
 
 def find_dead_channels(epochs, plot, deviations=3):
     """
-    FASTER misses some dead channels as they look like the inverse of the reference.
+    Occasionally FASTER can miss some completely dead channels as they look like the inverse of the reference channel.
     This function identifies them and interpolates them.
+
+    @param epochs: MNE epochs object
+    @param plot: show bar plot of channel powers
+    @param deviations: How many deviations the channel should be from the mean before being marked as bad
+    @return: epochs object with updated bads attribute and list of bads
     """
     data = epochs.get_data()
     data = np.mean(data, axis=0)
@@ -370,7 +384,7 @@ class EEG_Participant:
 
     def replace_events(self, event_file, keep_original_events=False):
         """
-        Adds new annotations and events to RAW data
+        Adds new annotations and events to RAW data from custom events file, usually based on behavioural data.
 
         Parameters
         ----------
@@ -430,12 +444,21 @@ class EEG_Participant:
         return self.epochs[by_events]
 
     def save_report(self):
+        """
+        Export mne report object to html file
+        """
         self.report.save(self.filename.with_suffix('.html'), overwrite=True, open_browser=False)
 
 
 class EEG_Experiment:
     """
     Class for loading and preprocessing multiple data files at once. Stores them as EEG_Participant objects.
+
+    @param exp_filepath: path to participant list csv file with following header:
+    ppt_num, data_path, extra_events_path, pid, EOG_channel, status, ref_channel, raw_format
+    @param output_path: path to a preprocessing output directory
+    @param event_ids: dictionary of event ids and trigger values.
+    @param montage: EEG montage object
     """
 
     def __init__(self, exp_filepath, output_path, event_ids, montage):
@@ -460,7 +483,7 @@ class EEG_Experiment:
 
     def read_RAWs(self, sfreq=200, hfreq=40, lfreq=0.5, plotting=False, skip_existing=True):
         """
-        Read multiple raw eeg files
+        Read multiple raw eeg files. Skip existing raw filtered files, and save report with pre and post filtering plots
 
         @param sfreq: sample rate
         @param hfreq: high frequency stop
@@ -479,6 +502,18 @@ class EEG_Experiment:
             del participant.RAW
 
     def preprocess_RAWs(self, tmin, bmax, tmax, additional_events_fname=None, plotting=False, skip_existing=True):
+        """
+        Runs multiple raw eeg participants through FASTER pipeline,
+        replaces events with new ones, and pickles participant object.
+
+        @param tmin: epoch baseline start time before time 0
+        @param bmax: end of baseline
+        @param tmax: end of epoch
+        @param additional_events_fname: Name of all custom events files.
+        Ignored when filename is specified for individuals in self.exp_file
+        @param plotting: show evoked before and after plots - mostly handled by report now
+        @param skip_existing: If preprocessing already complete skip participant
+        """
         for participant in self.participants:
             if participant.status == '':
                 print(f'{participant.pid} raw data not filtered. Skipping')

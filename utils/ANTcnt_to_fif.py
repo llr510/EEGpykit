@@ -1,5 +1,6 @@
 from utils.read_antcnt import read_raw_antcnt
 
+
 def cnt_to_fif(rawf, fiff):
     """
     Read ANT Neuro .cnt file and convert it to a mne raw.fif

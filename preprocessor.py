@@ -224,7 +224,7 @@ def get_event_counts(epochs):
 
 def add_to_log_csv(logdict, output_path):
     """
-    Superseded by mne.Report()
+    Not used currently. Superseded by mne.Report()
 
     Takes log dictionary from preprocess_with_faster and saves it to a csv.
     If csv already exists append a row.

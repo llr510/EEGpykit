@@ -11,7 +11,7 @@
     - Only works for the computer it was compiled on.
     - **Todo: Compiling instructions coming soon**
   - After this step we store the MNE raw object as a .pickle file.
-### preprocesser.py
+### preprocessor.py
 - Imports read_antcnt to read in data from eeg_data/
 - Automatically preprocesses data to reduce noise and artifacts using MNE and the FASTER protocol
 
@@ -39,5 +39,5 @@
 - waveguard64.xyz
   - The montage file for our EEG caps in xyz coordinates.
   - Does not include coordinates for reference electrode.
-  - Those are added in preprocesser.py
+  - Those are added in preprocessor.py
 

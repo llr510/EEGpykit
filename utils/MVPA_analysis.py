@@ -153,7 +153,7 @@ if '__main__' in __name__:
     var1 = list(epochs[var1_events].event_id.values())
     var2 = list(epochs[var2_events].event_id.values())
 
-    X = epochs.get_data()  # MEG signals: n_epochs, n_eeg_channels, n_times
+    X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
     y = epochs.events[:, 2]  # target: auditory left vs visual left
     y[np.argwhere(np.isin(y, var1)).ravel()] = 0
     y[np.argwhere(np.isin(y, var2)).ravel()] = 1

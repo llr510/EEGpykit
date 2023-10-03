@@ -1,7 +1,7 @@
 from pathlib import Path
 import mne
 import numpy as np
-from preprocesser import EEG_Participant
+from preprocessor import EEG_Participant
 from utils.epoch_evoked_plotter import plot_compare_evokeds
 import matplotlib
 import itertools
@@ -115,7 +115,9 @@ class Group(BaseAnalysis):
         del data
 
     def individuals_to_evokeds(self, exclude_list):
-        """converts epoch objects to separate evoked objects.
+        """
+        Converts epoch objects to separate evoked objects.
+
         @param exclude_list: list of individuals to exclude from evokeds
         """
         self.evokeds = []
@@ -192,6 +194,7 @@ class Group(BaseAnalysis):
 
 
 class Individual(BaseAnalysis):
+
     def __init__(self, analysis_db, data_db, filename):
         super().__init__(analysis_db, data_db)
         self.pickle_path = Path(data_db, filename)

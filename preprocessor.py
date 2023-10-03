@@ -421,6 +421,20 @@ class EEG_Participant:
         if make_report:
             self.save_report()
 
+    def save_fif(self, make_report=True):
+        """
+        Save epoched data as fif.
+
+        Parameters
+        ----------
+        make_report : bool
+            Choose to save separate html report file at the same time.
+        """
+        self.epochs.save(self.filename.with_suffix('.epo.fif'), overwrite=True)
+
+        if make_report:
+            self.save_report()
+
     @classmethod
     def load(cls, filename):
         """Load Participant object.
@@ -576,7 +590,8 @@ def run_with_UI():
     study.preprocess_RAWs(tmin=settings['tmin'], bmax=settings['bmax'], tmax=settings['tmax'],
                           additional_events_fname=settings['additional_events_fname'],
                           plotting=settings['plotting'],
-                          skip_existing=settings['skip existing'])
+                          skip_existing=settings['skip existing'],
+                          export='.fif')
 
 
 if '__main__' in __name__:

@@ -26,18 +26,23 @@ def recode_label(event, sep='/'):
     @param sep:
     @return:
     """
-    labels = ['Rate', 'View',
-              'Global', 'Obvious', 'Subtle', 'Normal',
-              'Correct', 'Incorrect', 'Missed',
-              'PerceivedAbnormal', 'PerceivedN']
 
-    event = event.replace('PerceivedNormal', 'PerceivedN')
-    label_list = []
-    for label in labels:
-        if label in event:
-            label_list.append(label)
-    tags = sep.join(label_list)
-    tags = tags.replace('PerceivedN', 'PerceivedNormal')
+    e = event.split(sep)
+    e[-1] = 'resp_' + e[-1]
+    tags = sep.join(e)
+
+    # labels = ['Rate', 'View',
+    #           'Global', 'Obvious', 'Subtle', 'Normal',
+    #           'Correct', 'Incorrect', 'Missed',
+    #           'PerceivedAbnormal', 'PerceivedN']
+    #
+    # event = event.replace('PerceivedNormal', 'PerceivedN')
+    # label_list = []
+    # for label in labels:
+    #     if label in event:
+    #         label_list.append(label)
+    # tags = sep.join(label_list)
+    # tags = tags.replace('PerceivedN', 'PerceivedNormal')
     return tags
 
 
@@ -63,7 +68,7 @@ def csp_score(epochs, X, y):
     plt.show(block=True)
 
 
-def temporal_decoding_plot(epochs, X, y, filename):
+def temporal_decoding(epochs, X, y, filename, plotting=False, scoring="roc_auc"):
     """
     https://mne.tools/stable/auto_tutorials/machine-learning/50_decoding.html
 
@@ -79,31 +84,37 @@ def temporal_decoding_plot(epochs, X, y, filename):
     When working with linear models as estimators, this approach boils down to estimating a discriminative spatial
     filter for each time instant.
 
+    @param scoring: what sklearn scoring measure to use. See sklearn.metrics.get_scorer_names() for options
     @param epochs: mne epochs object
     @param X: 3d array of n_epochs, n_meg_channels, n_times
     @param y: array of epoch events
     @param filename: plot filename for saving
     """
+
+    # Make logistic regression pipeline
     clf = make_pipeline(StandardScaler(), LogisticRegression(solver="liblinear"))
-
-    time_decode = SlidingEstimator(clf, n_jobs=None, scoring="roc_auc", verbose=True)
-    # here we use cv=3 just for speed
+    time_decode = SlidingEstimator(clf, n_jobs=8, scoring=scoring, verbose=True)
+    # set cross-validation to 5, so that 20% of data is validation and 80% is test data
     scores = cross_val_multiscore(time_decode, X, y, cv=5, n_jobs=None)
-
     # Mean scores across cross-validation splits
     scores = np.mean(scores, axis=0)
 
-    # Plot
-    fig, ax = plt.subplots()
-    ax.plot(epochs.times, scores, label="score")
-    ax.axhline(0.5, color="k", linestyle="--", label="chance")
-    ax.set_xlabel("Times")
-    ax.set_ylabel("AUC")  # Area Under the Curve
-    ax.legend()
-    ax.axvline(0.0, color="k", linestyle="-")
-    ax.set_title("Sensor space decoding")
-    plt.savefig(filename, dpi=150)
-    plt.show(block=True)
+    if plotting:
+        fig, ax = plt.subplots()
+        ax.plot(epochs.times, scores, label="score")
+        ax.axhline(0.5, color="k", linestyle="--", label="chance")
+
+        ax.set_ylim([0, 1])
+
+        ax.set_xlabel("Times")
+        ax.set_ylabel(scoring)  # Area Under the Curve
+        ax.legend()
+        ax.axvline(0.0, color="k", linestyle="-")
+        ax.set_title("Sensor space decoding")
+        plt.savefig(filename, dpi=150)
+        plt.show(block=True)
+
+    return scores
 
 
 def spatiotemporal_decoding_plot(epochs, X, y):
@@ -129,35 +140,61 @@ def spatiotemporal_decoding_plot(epochs, X, y):
 
 
 if '__main__' in __name__:
-    pnum = 2
-    epochs = mne.read_epochs(f'/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG_MAMMO_EXPERMENT'
-                             f'/MNE_preprocessing_db/EEGTraining_Rad{pnum}/EEGTraining_Rad{pnum}_epochs_output.fif')
+    sanity_check = False
+    pnum = 1
+    # epochs = mne.read_epochs(f'/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG_MAMMO_EXPERMENT'
+    #                          f'/MNE_preprocessing_db/EEGTraining_Rad{pnum}/EEGTraining_Rad{pnum}_epochs_output.fif')
+    scores_list = []
+    for pnum in range(1, 6):
+        epochs = mne.read_epochs(
+            f'/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/output/EEGTraining_Rad{pnum}.epo.fif')
+        epochs.pick_types(eeg=True, exclude="bads")
+        epochs.event_id = {recode_label(k): v for k, v in epochs.event_id.items()}
+        print(epochs.event_id)
+        # epochs.plot(n_epochs=1, butterfly=True, block=True)
 
-    epochs.pick_types(eeg=True, exclude="bads")
-    epochs.apply_baseline(baseline=(None, -0.2))
-    # epochs.crop(tmin=0)
-    epochs.event_id = {recode_label(k): v for k, v in epochs.event_id.items()}
+        var1_events = ['Normal']
+        var2_events = ['Obvious']
 
-    # epochs.plot(n_epochs=1, butterfly=True, block=True)
+        var1 = list(epochs[var1_events].event_id.values())
+        var2 = list(epochs[var2_events].event_id.values())
 
-    var1_events = 'View/Normal'
-    var2_events = ['View/Obvious', 'View/Subtle', 'View/Global']
-    var_exclude = ['Rate', 'Missed']
+        epochs = epochs[var1_events + var2_events]
 
-    # var1_events = 'Rate'
-    # var2_events = 'View'
+        # # var_exclude = ['Rate', 'Missed']
+        # to_drop = list(epochs[var_exclude].event_id.values())
+        # epochs.drop([True if x in to_drop else False for x in list(epochs.events[:, 2])])
 
-    to_drop = list(epochs[var_exclude].event_id.values())
-    epochs.drop([True if x in to_drop else False for x in list(epochs.events[:, 2])])
+        X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
+        print(X.shape)
 
-    var1 = list(epochs[var1_events].event_id.values())
-    var2 = list(epochs[var2_events].event_id.values())
+        if sanity_check:
+            X = np.random.normal(0, 1, size=X.shape)
+        y = epochs.events[:, 2]
+        print(epochs.events)
 
-    X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
-    y = epochs.events[:, 2]  # target: auditory left vs visual left
-    y[np.argwhere(np.isin(y, var1)).ravel()] = 0
-    y[np.argwhere(np.isin(y, var2)).ravel()] = 1
+        y[np.argwhere(np.isin(y, var1)).ravel()] = 0
+        y[np.argwhere(np.isin(y, var2)).ravel()] = 1
 
-    # csp_score(epochs, X, y)
-    # temporal_decoding_plot(epochs, X, y, filename=f'../analyses/temporal_decoding_Rad{pnum}.png')
-    spatiotemporal_decoding_plot(epochs, X, y)
+        zs = np.zeros(len(y/2))
+        os = np.ones(len(y/2))
+
+        # csp_score(epochs, X, y)
+        scores = temporal_decoding(epochs, X, y, filename=f'../analyses/temporal_decoding_Rad{pnum}_1.png',
+                                   plotting=False, scoring='accuracy')
+        scores_list.append(scores)
+    m_scores = np.mean(scores_list, axis=0)
+
+    fig, ax = plt.subplots()
+
+    ax.plot(epochs.times, m_scores, label="score")
+    ax.set_ylim([0, 1])
+    ax.axhline(0.5, color="k", linestyle="--", label="chance")
+    ax.set_xlabel("Time")
+    ax.set_ylabel('Mean Accuracy')
+    ax.legend()
+    ax.axvline(0.0, color="k", linestyle="-")
+    ax.set_title("Sensor space decoding")
+    plt.savefig(f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png", dpi=150)
+    plt.show(block=True)
+    # spatiotemporal_decoding_plot(epochs, X, y)

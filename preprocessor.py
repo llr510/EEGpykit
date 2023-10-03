@@ -430,14 +430,20 @@ class EEG_Participant:
         make_report : bool
             Choose to save separate html report file at the same time.
         """
-        self.epochs.save(self.filename.with_suffix('.epo.fif'), overwrite=True)
+        try:
+            self.epochs.save(self.filename.with_suffix('.epo.fif'), overwrite=True)
+        except AssertionError:
+            # For some reason WRITABLE being true trips an assertion error when writing to fif
+            self.epochs.times.flags['WRITEABLE'] = False
+            self.epochs.save(self.filename.with_suffix('.epo.fif'), overwrite=True)
 
         if make_report:
             self.save_report()
 
     @classmethod
     def load(cls, filename):
-        """Load Participant object.
+        """
+        Load Participant object.
 
         Parameters
         ----------
@@ -451,9 +457,9 @@ class EEG_Participant:
         """
         mne.Epochs object getter.
 
-        :param by_events: str
+        @param by_events: str
             Events to select epochs in epochs object by. Can be multiple events if they're separated by '/'.
-        :return: mne.Epochs object
+        @return: mne.Epochs object
         """
         return self.epochs[by_events]
 
@@ -515,7 +521,8 @@ class EEG_Experiment:
             # Clear RAW from memory otherwise we might run out if we load a lot of participants
             del participant.RAW
 
-    def preprocess_RAWs(self, tmin, bmax, tmax, additional_events_fname=None, plotting=False, skip_existing=True):
+    def preprocess_RAWs(self, tmin, bmax, tmax, additional_events_fname=None, plotting=False, skip_existing=True,
+                        export_fif=False):
         """
         Runs multiple raw eeg participants through FASTER pipeline,
         replaces events with new ones, and pickles participant object.
@@ -527,6 +534,7 @@ class EEG_Experiment:
         Ignored when filename is specified for individuals in self.exp_file
         @param plotting: show evoked before and after plots - mostly handled by report now
         @param skip_existing: If preprocessing already complete skip participant
+        @param export_fif:
         """
         for participant in self.participants:
             if participant.status == '':
@@ -554,7 +562,12 @@ class EEG_Experiment:
                 participant.replace_events(Path(participant.data_path, additional_events_fname).with_suffix('.csv'))
 
             participant.preprocess_RAW(tmin, bmax, tmax, plotting)
-            participant.save()
+
+            if export_fif:
+                participant.save_fif()
+            else:
+                participant.save()
+
             # Clear RAW from memory otherwise we might run out if we load a lot of participants
             del participant.RAW
 
@@ -591,12 +604,14 @@ def run_with_UI():
                           additional_events_fname=settings['additional_events_fname'],
                           plotting=settings['plotting'],
                           skip_existing=settings['skip existing'],
-                          export='.fif')
+                          export_fif=True)
 
 
 if '__main__' in __name__:
     run_with_UI()
-
+    # e = EEG_Participant.load(
+    #     '/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/output/EEGTraining_Rad1.pickle')
+    # e.save_fif(make_report=False)
     # default_plist = '/Users/llr510/PycharmProjects/EEGpykit/experiments/e1/experiment_participant_list_dots.csv'
     # default_output = '/Volumes/psgroups/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/MNE_preprocessing_db'
     # default_trg_labels = '/Users/llr510/PycharmProjects/EEGpykit/experiments/e1/experiment_trigger_labels.csv'

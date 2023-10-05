@@ -1,3 +1,4 @@
+from pathlib import Path
 from utils.read_antcnt import read_raw_antcnt
 
 
@@ -14,8 +15,13 @@ def cnt_to_fif(rawf, fiff):
 
 
 if '__main__' in __name__:
-    for n in range(2, 6):
-        cnt_to_fif(
-            f"/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/EEG/EEGTraining_Rad{n}.cnt",
-            f"/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/EEG/EEGTraining_Rad{n}.fif"
-        )
+    directory = '/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG_MAMMO_EXPERMENT/eeg data/'
+    filename = 'EEGTraining_Sub*Rec*.cnt'
+    files = Path(directory).rglob(filename)
+
+    for file in files:
+        output = Path('/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Naives/EEG/', file.stem+'.fif')
+        if output.exists():
+            continue
+
+        cnt_to_fif(file, output)

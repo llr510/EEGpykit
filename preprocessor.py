@@ -130,11 +130,11 @@ def preprocess_with_faster(raw, events, event_ids, picks, tmin=-0.5, bmax=0, tma
     # Compute evoked before cleaning, using an average EEG reference
     epochs_before = epochs.copy()
     epochs_before.set_eeg_reference('average')
-
     # set baseline from start of epoch to before event happens
     baseline = (None, bmax)
     epochs_before.apply_baseline(baseline)
-    report.add_epochs(epochs=epochs_before, title='Epochs before FASTER')
+    if report:
+        report.add_epochs(epochs=epochs_before, title='Epochs before FASTER')
 
     evoked_before = epochs_before.average()
     if plotting:
@@ -194,12 +194,14 @@ def preprocess_with_faster(raw, events, event_ids, picks, tmin=-0.5, bmax=0, tma
 
     # Compute evoked after cleaning, using an average EEG reference
     # Second filtering to catch any high frequency electrical noise
-    epochs.filter(l_freq=None, h_freq=40, method='fir', picks=picks)  # , h_trans_bandwidth=9)
+    # epochs.filter(l_freq=None, h_freq=40, method='fir', picks=picks)  # , h_trans_bandwidth=9)
     epochs.set_eeg_reference('average')
     epochs.apply_baseline(baseline)
-    report.add_epochs(epochs=epochs, title='Epochs after FASTER')
+    if report:
+        report.add_epochs(epochs=epochs, title='Epochs after FASTER')
     evoked_after = epochs.average()
-    report.add_evokeds(evokeds=[evoked_before, evoked_after], titles=['Evoked before FASTER', 'Evoked after FASTER'])
+    if report:
+        report.add_evokeds(evokeds=[evoked_before, evoked_after], titles=['Evoked before FASTER', 'Evoked after FASTER'])
 
     ##############################################################################
     if plotting:

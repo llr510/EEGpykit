@@ -174,11 +174,12 @@ def temporal_generalization(epochs, X, y, filename='temp_gen_plot.png', plotting
     plt.show(block=True)
 
 
-def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc_auc", indiv_plot=False,
+def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc_auc", output_dir='', indiv_plot=False,
                   concat_participants=False, epochs_list=[]):
     """
     Performs MVPA analysis over multiple participants
 
+    @param output_dir: output directory for figures
     @param concat_participants: if true concatenate all epochs and run MVPA on that instead of individuals
     @param files: iterable or list of .epo.fif filepaths
     @param var1_events: list of event conditions for MVPA comparison
@@ -196,7 +197,6 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc
         files = epochs_list
     for file in files:
         epochs = mne.read_epochs(file)
-
         epochs.pick_types(eeg=True, exclude="bads")
 
         # if indiv_plot:
@@ -228,7 +228,8 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc
             X_list.append(X)
             y_list.append(y)
         else:
-            scores = temporal_decoding(epochs, X, y, filename=f'../analyses/temp_decod_{file.with_suffix("").stem}.png',
+            scores = temporal_decoding(epochs, X, y,
+                                       filename=Path(output_dir, f'temp_decod_{file.with_suffix("").stem}.png'),
                                        plotting=indiv_plot, scoring=scoring)
             # temporal_generalization(epochs, X, y)
             scores_list.append(scores)
@@ -238,7 +239,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc
         y = np.concatenate(y_list, axis=0)
         print(X.shape)
         temporal_decoding(epochs, X, y,
-                          filename=f"../analyses/group_{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png",
+                          filename=Path(output_dir, f"group_{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png"),
                           plotting=indiv_plot, scoring=scoring)
     else:
         m_scores = np.mean(scores_list, axis=0)
@@ -252,7 +253,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc
         ax.legend()
         ax.axvline(0.0, color="k", linestyle="-")
         ax.set_title("Sensor space decoding")
-        plt.savefig(f"../analyses/{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png", dpi=150)
+        plt.savefig(Path(output_dir, f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png"), dpi=150)
         plt.show(block=True)
 
 
@@ -276,7 +277,6 @@ def test_data_mvpa():
     }
     events = mne.find_events(raw, stim_channel="STI 014")
     picks = mne.pick_types(raw.info, meg=False, eeg=True, eog=True)
-    print(len(picks))
 
     epochs, evoked_before, evoked_after, logdict, report = preprocess_with_faster(raw, events, event_ids=event_dict,
                                                                                   picks=picks, tmin=-0.2, bmax=0,
@@ -319,25 +319,28 @@ def test_data_mvpa():
 
     print(X.shape, y.shape)
 
-    scores = temporal_decoding(epochs, X, y, filename=f'../analyses/temp_decod_test_data.png',
+    temporal_decoding(epochs, X, y, filename=f'../analyses/temp_decod_test_data.png',
                                plotting=indiv_plot, scoring=scoring)
 
 
 if '__main__' in __name__:
-    test_data_mvpa()
-    quit()
+    # test_data_mvpa()
+    # quit()
     files = Path(
-        '/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/output/').glob(
+        '/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA '
+        'Project/data/Radiologists/output/').glob(
         'EEGTraining_Rad*.epo.fif')
-    scoring = "roc_auc"
-    var1_events = ['Normal', 'Global']
-    var2_events = ['Obvious', 'Subtle']
 
     # var1_events = ['resp_Abnormal']
     # var2_events = ['resp_Normal']
 
     # var1_events = ['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal']
     # var2_events = ['Normal/resp_Normal']
-    excluded_events = ['Rate', 'Missed']
 
-    MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring, indiv_plot=True)
+    MVPA_analysis(files,
+                  var1_events=['Normal', 'Global'],
+                  var2_events=['Obvious', 'Subtle'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir='../analyses',
+                  indiv_plot=True)

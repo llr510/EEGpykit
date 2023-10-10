@@ -22,6 +22,7 @@ from mne.decoding import (
 
 def recode_label(event, sep='/'):
     """
+    Used to adjust event names so that they have the desired format
 
     @param event: epochs.event_id.items
     @param sep:
@@ -49,6 +50,8 @@ def recode_label(event, sep='/'):
 
 def len_match_arrays(X, y, sanity_check=False):
     """
+    In theory a glm or svm can learn to distinguish groups by a case imbalance.
+    This function randomly drops epochs from the longer of two cases so that they are the same length.
 
     @param X: 3d epochs data array.
     @param y: 1d epochs binary event type array.
@@ -56,12 +59,8 @@ def len_match_arrays(X, y, sanity_check=False):
     """
 
     x1 = X[np.where(y == 0)[0], :, :]
-    # x2 = x1.copy()
     x2 = X[np.where(y == 1)[0], :, :]
-
-    x1 = x1[:, :, :]
-    x1 = x1[:, :, :]
-
+    print(x1.shape, x2.shape)
     if sanity_check:
         x1[:, :, 200:] = 1000000.0
     else:
@@ -71,6 +70,7 @@ def len_match_arrays(X, y, sanity_check=False):
         elif x2.shape[0] > x1.shape[0]:
             idxs = np.random.choice(x2.shape[0], size=x1.shape[0], replace=False)
             x2 = x2[idxs, :, :]
+    print(x1.shape, x2.shape)
     assert x1.shape[0] == x2.shape[0]
 
     X = np.concatenate([x1, x2], axis=0)
@@ -170,14 +170,25 @@ def temporal_generalization(epochs, X, y, filename='temp_gen_plot.png', plotting
     ax.set_ylabel("AUC")
     ax.legend()
     ax.axvline(0.0, color="k", linestyle="-")
-    ax.set_title("Decoding MEG sensors over time")
+    ax.set_title("Decoding EEG sensors over time")
 
     plt.savefig(filename, dpi=150)
     plt.show(block=True)
 
 
-def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc_auc", indiv_plot=False,
-                  sanity_check=False, epochs_list=[]):
+def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc_auc", indiv_plot=False, epochs_list=[]):
+    """
+    Performs MVPA analysis over multiple participants
+
+    @param files: iterable or list of .epo.fif filepaths
+    @param var1_events: list of event conditions for MVPA comparison
+    @param var2_events: list of event conditions for MVPA comparison
+    @param excluded_events: list of events to exclude from analysis
+    @param scoring: scoring method for estimator. e.g: 'accuracy', 'roc_auc
+    @param indiv_plot: whether to plot individual data
+    @param epochs_list: If epochs are already loaded, use this instead of files
+    """
+
     scores_list = []
     if len(epochs_list) > 0:
         files = epochs_list
@@ -212,13 +223,6 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc
 
         X, y = len_match_arrays(X, y, sanity_check=False)
 
-        # rng = ''
-        # if sanity_check:
-        #     # X = np.random.normal(0, 1, size=X.shape)
-        #     # y = np.concatenate((np.zeros(ceil(len(y) / 2)), np.ones(floor(len(y) / 2))))
-        #     np.random.shuffle(y)
-        #     rng = '_rng'
-
         print(X.shape, y.shape)
 
         scores = temporal_decoding(epochs, X, y, filename=f'../analyses/temp_decod_{file.with_suffix("").stem}.png',
@@ -242,6 +246,9 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc
 
 
 def test_data_mvpa():
+    """
+    Loads some MNE test data, preprocesses it and runs an MVPA analysis on it
+    """
     sample_data_folder = mne.datasets.sample.data_path()
     sample_data_raw_file = (
             sample_data_folder / "MEG" / "sample" / "sample_audvis_filt-0-40_raw.fif"
@@ -266,9 +273,9 @@ def test_data_mvpa():
                                                                                   report=None)
 
     scoring = "roc_auc"
-    var1_events = ['resp_left']
-    var2_events = ['resp_right']
-    excluded_events = ['smiley', 'buttonpress']
+    var1_events = ['auditory']
+    var2_events = ['visual']
+    excluded_events = ['buttonpress']
     indiv_plot = True
 
     epochs.pick_types(eeg=True, exclude="bads")
@@ -297,7 +304,7 @@ def test_data_mvpa():
     y[np.argwhere(np.isin(y, var1)).ravel()] = 0
     y[np.argwhere(np.isin(y, var2)).ravel()] = 1
 
-    X, y = len_match_arrays(X, y, sanity_check=True)
+    X, y = len_match_arrays(X, y)
 
     print(X.shape, y.shape)
 

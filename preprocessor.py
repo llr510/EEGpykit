@@ -158,7 +158,7 @@ def preprocess_with_faster(raw, events, event_ids, picks, tmin=-0.5, bmax=0, tma
         epochs.set_eeg_reference('average')
         epochs, bads = find_dead_channels(epochs, plot=plotting)
         logdict['Extra Interpolated Channels'] = bads
-        epochs.set_eeg_reference(['Cz'])
+        # epochs.set_eeg_reference(['Cz'])
     except ValueError:
         print("Couldn't run psd_array_welch. Debugging needed.")
 
@@ -194,7 +194,9 @@ def preprocess_with_faster(raw, events, event_ids, picks, tmin=-0.5, bmax=0, tma
 
     # Compute evoked after cleaning, using an average EEG reference
     # Second filtering to catch any high frequency electrical noise
-    # epochs.filter(l_freq=None, h_freq=40, method='fir', picks=picks)  # , h_trans_bandwidth=9)
+    # fir works better here for catching 50 Hz electrical noise
+    epochs.filter(l_freq=None, h_freq=40, method='fir', picks=mne.pick_types(epochs.info, eeg=True, eog=True))  # , h_trans_bandwidth=9)
+
     epochs.set_eeg_reference('average')
     epochs.apply_baseline(baseline)
     if report:
@@ -580,9 +582,9 @@ def run_with_UI():
     building EEG_Experiment object and outputting preprocessed eeg data.
     """
     box = dialogue_window(title='Preprocessing Setup',
-                          default_plist='/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/experiment_participant_list.csv',
-                          default_output='/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/output',
-                          default_trg_labels='/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/experiment_trigger_labels.csv')
+                          default_plist='/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/experiment_participant_list.csv',
+                          default_output='/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/output',
+                          default_trg_labels='/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/experiment_trigger_labels.csv')
     box.show()
     settings = box.get_output()
     print(settings)

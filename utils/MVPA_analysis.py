@@ -28,11 +28,9 @@ def recode_label(event, sep='/'):
     @param sep:
     @return:
     """
-
     e = event.split(sep)
     e[-1] = 'resp_' + e[-1]
     tags = sep.join(e)
-
     # labels = ['Rate', 'View',
     #           'Global', 'Obvious', 'Subtle', 'Normal',
     #           'Correct', 'Incorrect', 'Missed',
@@ -176,10 +174,12 @@ def temporal_generalization(epochs, X, y, filename='temp_gen_plot.png', plotting
     plt.show(block=True)
 
 
-def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc_auc", indiv_plot=False, epochs_list=[]):
+def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc_auc", indiv_plot=False,
+                  concat_participants=False, epochs_list=[]):
     """
     Performs MVPA analysis over multiple participants
 
+    @param concat_participants: if true concatenate all epochs and run MVPA on that instead of individuals
     @param files: iterable or list of .epo.fif filepaths
     @param var1_events: list of event conditions for MVPA comparison
     @param var2_events: list of event conditions for MVPA comparison
@@ -190,6 +190,8 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc
     """
 
     scores_list = []
+    X_list = []
+    y_list = []
     if len(epochs_list) > 0:
         files = epochs_list
     for file in files:
@@ -200,8 +202,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc
         # if indiv_plot:
         #     evoked = epochs.average(method='mean')
         #     evoked.plot()
-
-        epochs.event_id = {recode_label(k): v for k, v in epochs.event_id.items()}
+        # epochs.event_id = {recode_label(k): v for k, v in epochs.event_id.items()}
         print(epochs.event_id)
 
         var1 = list(epochs[var1_events].event_id.values())
@@ -223,26 +224,36 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc
 
         X, y = len_match_arrays(X, y, sanity_check=False)
 
-        print(X.shape, y.shape)
+        if concat_participants:
+            X_list.append(X)
+            y_list.append(y)
+        else:
+            scores = temporal_decoding(epochs, X, y, filename=f'../analyses/temp_decod_{file.with_suffix("").stem}.png',
+                                       plotting=indiv_plot, scoring=scoring)
+            # temporal_generalization(epochs, X, y)
+            scores_list.append(scores)
 
-        scores = temporal_decoding(epochs, X, y, filename=f'../analyses/temp_decod_{file.with_suffix("").stem}.png',
-                                   plotting=indiv_plot, scoring=scoring)
-        # temporal_generalization(epochs, X, y)
-        scores_list.append(scores)
+    if concat_participants:
+        X = np.concatenate(X_list, axis=0)
+        y = np.concatenate(y_list, axis=0)
+        print(X.shape)
+        temporal_decoding(epochs, X, y,
+                          filename=f"../analyses/group_{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png",
+                          plotting=indiv_plot, scoring=scoring)
+    else:
+        m_scores = np.mean(scores_list, axis=0)
 
-    m_scores = np.mean(scores_list, axis=0)
-
-    fig, ax = plt.subplots()
-    ax.plot(epochs.times, m_scores, label="score")
-    ax.set_ylim([0, 1])
-    ax.axhline(0.5, color="k", linestyle="--", label="chance")
-    ax.set_xlabel("Time")
-    ax.set_ylabel(scoring)
-    ax.legend()
-    ax.axvline(0.0, color="k", linestyle="-")
-    ax.set_title("Sensor space decoding")
-    plt.savefig(f"../analyses/{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png", dpi=150)
-    plt.show(block=True)
+        fig, ax = plt.subplots()
+        ax.plot(epochs.times, m_scores, label="score")
+        ax.set_ylim([0, 1])
+        ax.axhline(0.5, color="k", linestyle="--", label="chance")
+        ax.set_xlabel("Time")
+        ax.set_ylabel(scoring)
+        ax.legend()
+        ax.axvline(0.0, color="k", linestyle="-")
+        ax.set_title("Sensor space decoding")
+        plt.savefig(f"../analyses/{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png", dpi=150)
+        plt.show(block=True)
 
 
 def test_data_mvpa():
@@ -313,17 +324,20 @@ def test_data_mvpa():
 
 
 if '__main__' in __name__:
-    # test_data_mvpa()
-    # quit()
+    test_data_mvpa()
+    quit()
     files = Path(
         '/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/output/').glob(
         'EEGTraining_Rad*.epo.fif')
     scoring = "roc_auc"
-    # var1_events = ['Normal']
-    # var2_events = ['Obvious', 'Subtle']
+    var1_events = ['Normal', 'Global']
+    var2_events = ['Obvious', 'Subtle']
 
-    var1_events = ['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal']
-    var2_events = ['Normal/resp_Normal']
+    # var1_events = ['resp_Abnormal']
+    # var2_events = ['resp_Normal']
+
+    # var1_events = ['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal']
+    # var2_events = ['Normal/resp_Normal']
     excluded_events = ['Rate', 'Missed']
 
-    MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring, indiv_plot=True, sanity_check=False)
+    MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring, indiv_plot=True)

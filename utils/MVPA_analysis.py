@@ -253,7 +253,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc
         ax.legend()
         ax.axvline(0.0, color="k", linestyle="-")
         ax.set_title("Sensor space decoding")
-        plt.savefig(Path(output_dir, f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png"), dpi=150)
+        plt.savefig(Path(output_dir, f"Sensor space decoding.png"), dpi=150)
         plt.show(block=True)
 
 
@@ -327,8 +327,7 @@ if '__main__' in __name__:
     # test_data_mvpa()
     # quit()
     files = Path(
-        '/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA '
-        'Project/data/Radiologists/output/').glob(
+        r'\\storage.its.york.ac.uk\pshome\llr510\My Documents\output').glob(
         'EEGTraining_Rad*.epo.fif')
 
     # var1_events = ['resp_Abnormal']
@@ -338,9 +337,9 @@ if '__main__' in __name__:
     # var2_events = ['Normal/resp_Normal']
 
     MVPA_analysis(files,
-                  var1_events=['Normal', 'Global'],
-                  var2_events=['Obvious', 'Subtle'],
+                  var1_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
+                  var2_events=['Normal/resp_Normal'],
                   excluded_events=['Rate', 'Missed'],
                   scoring="roc_auc",
-                  output_dir='../analyses',
+                  output_dir=r'\\storage.its.york.ac.uk\pshome\llr510\My Documents\output',
                   indiv_plot=True)

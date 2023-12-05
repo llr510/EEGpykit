@@ -116,7 +116,7 @@ def temporal_decoding(times, X, y, filename, plotting=False, scoring="roc_auc", 
     # clf = make_pipeline(StandardScaler(), LogisticRegression(solver="liblinear"))
     clf = make_pipeline(StandardScaler(), SVC(kernel='rbf'))
     time_decode = SlidingEstimator(clf, n_jobs=jobs, scoring=scoring, verbose=False)
-    # set cross-validation to 5, so that 20% of data is validation and 80% is test data
+    # set cross-validation to 5, so that 20% of test is validation and 80% is train data
     scores = cross_val_multiscore(time_decode, X, y, cv=5, n_jobs=jobs)
     # Mean scores across cross-validation splits
     scores = np.mean(scores, axis=0)
@@ -247,7 +247,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
         else:
             X, y = len_match_arrays(X, y, sanity_check=False)
             scores = temporal_decoding(times, X, y,
-                                       filename=Path(output_dir, f'temp_decod_{file.with_suffix("").stem}.png'),
+                                       filename=Path(output_dir, f'temp_decod_{Path(file).with_suffix("").stem}.png'),
                                        plotting=indiv_plot, scoring=scoring, jobs=jobs)
             # temporal_generalization(epochs, X, y)
             scores_list.append(scores)
@@ -355,32 +355,28 @@ if '__main__' in __name__:
     # test_data_mvpa()
     # quit()
 
-    # '''Path to folder containing eeg data'''
-    # data_directory = '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/output/'
-    # '''Naming scheme for eeg data (asterisk denotes part of string that changes)'''
-    # file_naming_scheme = 'EEGTraining_Rad*.epo.fif'
-    #
-    # # data_directory = '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/AB/output/'
-    # # file_naming_scheme = '*_PPT_*.epo.fif'
-    #
-    # '''Recursively search for files that match pattern'''
-    # files = Path(data_directory).rglob(file_naming_scheme)
-    #
-    # # var1_events = ['resp_Abnormal']
-    # # var2_events = ['resp_Normal']
-    # # var1_events = ['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal']
-    # # var2_events = ['Normal/resp_Normal']
-
-    files, extra = get_filepaths_from_file('/Users/llr510/PycharmProjects/EEGpykit/analyses/MVPA_analysis_list.csv')
+    files, extra = get_filepaths_from_file(
+        '/Users/llr510/PycharmProjects/EEGpykit/analyses/MVPA_analysis_list_sesh1.csv')
     print(files, extra)
 
     MVPA_analysis(files,
-                  var1_events=['sesh_1/Obvious/resp_Abnormal'],
-                  var2_events=['sesh_2/Obvious/resp_Abnormal'],
-                  excluded_events=['Rate', 'Missed', 'ppt_6'],
+                  var1_events=['Normal'],
+                  var2_events=['Obvious', 'Subtle'],
+                  excluded_events=['Rate', 'Missed'],
                   scoring="roc_auc",
                   output_dir='../analyses',
                   indiv_plot=False,
-                  concat_participants=True,
+                  concat_participants=False,
                   extra_event_labels=extra,
-                  jobs=4)
+                  jobs=-1)
+
+    # MVPA_analysis(files,
+    #               var1_events=['sesh_1/Obvious/resp_Abnormal'],
+    #               var2_events=['sesh_2/Obvious/resp_Abnormal'],
+    #               excluded_events=['Rate', 'Missed', 'ppt_6'],
+    #               scoring="roc_auc",
+    #               output_dir='../analyses',
+    #               indiv_plot=False,
+    #               concat_participants=True,
+    #               extra_event_labels=extra,
+    #               jobs=4)

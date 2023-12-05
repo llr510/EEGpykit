@@ -559,8 +559,7 @@ class EEG_Experiment:
                 continue
 
             if 'extra_events_path' in self.exp_file.columns:
-                additional_events_fname = self.exp_file[self.exp_file['ppt_num'] == int(participant.ppt_num)][
-                    'extra_events_path'].values[0]
+                additional_events_fname = self.exp_file[self.exp_file['pid'] == participant.pid]['extra_events_path'].values[0]
                 participant.replace_events(Path(additional_events_fname))
             elif additional_events_fname is not None:
                 participant.replace_events(Path(participant.data_path, additional_events_fname).with_suffix('.csv'))

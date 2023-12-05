@@ -1,6 +1,7 @@
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
@@ -20,29 +21,17 @@ from mne.decoding import (
 )
 
 
-def recode_label(event, sep='/'):
+def recode_label(event, extra_labels=None, sep='/'):
     """
     Used to adjust event names so that they have the desired format
 
+    @param extra_labels: list of extra labels to join with
     @param event: epochs.event_id.items
-    @param sep:
-    @return:
+    @param sep: character that seperates labels
+    @return: tags
     """
-    e = event.split(sep)
-    e[-1] = 'resp_' + e[-1]
-    tags = sep.join(e)
-    # labels = ['Rate', 'View',
-    #           'Global', 'Obvious', 'Subtle', 'Normal',
-    #           'Correct', 'Incorrect', 'Missed',
-    #           'PerceivedAbnormal', 'PerceivedN']
-    #
-    # event = event.replace('PerceivedNormal', 'PerceivedN')
-    # label_list = []
-    # for label in labels:
-    #     if label in event:
-    #         label_list.append(label)
-    # tags = sep.join(label_list)
-    # tags = tags.replace('PerceivedN', 'PerceivedNormal')
+    tags = sep.join([event] + extra_labels)
+
     return tags
 
 
@@ -51,6 +40,7 @@ def len_match_arrays(X, y, sanity_check=False):
     In theory a glm or svm can learn to distinguish groups by a case imbalance.
     This function randomly drops epochs from the longer of two cases so that they are the same length.
 
+    @param sanity_check: add a large number to the values of one condition
     @param X: 3d epochs data array.
     @param y: 1d epochs binary event type array.
     @return: len matched X,y.
@@ -77,7 +67,27 @@ def len_match_arrays(X, y, sanity_check=False):
     return X, y
 
 
-def temporal_decoding(epochs, X, y, filename, plotting=False, scoring="roc_auc"):
+def plot_svm_scores(times, scores, scoring="roc_auc", title=''):
+    """
+    Make a basic line plot of SVM accuracy
+
+    @param times: array of samples on y axis
+    @param scores: array of accuracy scores on x axis
+    @param scoring: scoring method (sklearn.metrics.get_scorer_names())
+    @param title: title of plot
+    """
+    fig, ax = plt.subplots()
+    ax.plot(times, scores, label="score")
+    ax.set_ylim([0, 1])
+    ax.axhline(0.5, color="k", linestyle="--", label="chance")
+    ax.set_xlabel("time (s)")
+    ax.set_ylabel(scoring)
+    ax.legend()
+    ax.axvline(0.0, color="k", linestyle="-")
+    ax.set_title(title)
+
+
+def temporal_decoding(times, X, y, filename, plotting=False, scoring="roc_auc", jobs=-1):
     """
     https://mne.tools/stable/auto_tutorials/machine-learning/50_decoding.html
 
@@ -95,32 +105,23 @@ def temporal_decoding(epochs, X, y, filename, plotting=False, scoring="roc_auc")
 
     @param plotting: whether to plot or not
     @param scoring: what sklearn scoring measure to use. See sklearn.metrics.get_scorer_names() for options
-    @param epochs: mne epochs object
     @param X: 3d array of n_epochs, n_meg_channels, n_times
     @param y: array of epoch events
     @param filename: plot filename for saving
+    @param jobs: number of processor cores to use (-1 uses maximum). Smaller number uses less RAM but takes longer.
+    @return scores: array of SVM accuracy scores
     """
 
     # Make logistic regression pipeline
     # clf = make_pipeline(StandardScaler(), LogisticRegression(solver="liblinear"))
     clf = make_pipeline(StandardScaler(), SVC(kernel='rbf'))
-    time_decode = SlidingEstimator(clf, n_jobs=-1, scoring=scoring, verbose=False)
+    time_decode = SlidingEstimator(clf, n_jobs=jobs, scoring=scoring, verbose=False)
     # set cross-validation to 5, so that 20% of data is validation and 80% is test data
-    scores = cross_val_multiscore(time_decode, X, y, cv=5, n_jobs=-1)
+    scores = cross_val_multiscore(time_decode, X, y, cv=5, n_jobs=jobs)
     # Mean scores across cross-validation splits
     scores = np.mean(scores, axis=0)
 
-    fig, ax = plt.subplots()
-    ax.plot(epochs.times, scores, label="score")
-    ax.axhline(0.5, color="k", linestyle="--", label="chance")
-
-    ax.set_ylim([0, 1])
-
-    ax.set_xlabel("Times")
-    ax.set_ylabel(scoring)  # Area Under the Curve
-    ax.legend()
-    ax.axvline(0.0, color="k", linestyle="-")
-    ax.set_title("Sensor space decoding")
+    plot_svm_scores(times, scores, scoring, str(filename.stem))
     plt.savefig(filename, dpi=150)
     if plotting:
         plt.show(block=True)
@@ -147,7 +148,6 @@ def temporal_generalization(epochs, X, y, filename='temp_gen_plot.png', plotting
     @param filename: plot filename for saving
     @param plotting: whether to plot or not
     @param scoring: what sklearn scoring measure to use. See sklearn.metrics.get_scorer_names() for options
-    @return:
     """
 
     clf = make_pipeline(StandardScaler(), SVC(kernel='rbf'))  # 'rbf'
@@ -164,8 +164,8 @@ def temporal_generalization(epochs, X, y, filename='temp_gen_plot.png', plotting
     fig, ax = plt.subplots()
     ax.plot(epochs.times, np.diag(scores), label="score")
     ax.axhline(0.5, color="k", linestyle="--", label="chance")
-    ax.set_xlabel("Times")
-    ax.set_ylabel("AUC")
+    ax.set_xlabel("time (s)")
+    ax.set_ylabel(scoring)
     ax.legend()
     ax.axvline(0.0, color="k", linestyle="-")
     ax.set_title("Decoding EEG sensors over time")
@@ -174,10 +174,11 @@ def temporal_generalization(epochs, X, y, filename='temp_gen_plot.png', plotting
     plt.show(block=True)
 
 
-def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc_auc", output_dir='', indiv_plot=False,
-                  concat_participants=False, epochs_list=[]):
+def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="roc_auc", output_dir='',
+                  indiv_plot=False, concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1):
     """
-    Performs MVPA analysis over multiple participants
+    Performs MVPA analysis over multiple participants.
+    If you want to compare across multiple sessions concat_participants must be true
 
     @param output_dir: output directory for figures
     @param concat_participants: if true concatenate all epochs and run MVPA on that instead of individuals
@@ -188,72 +189,85 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events, scoring="roc
     @param scoring: scoring method for estimator. e.g: 'accuracy', 'roc_auc
     @param indiv_plot: whether to plot individual data
     @param epochs_list: If epochs are already loaded, use this instead of files
+    @param extra_event_labels: list of lists
+    @param jobs: number of processor cores to use (-1 uses maximum). Smaller number uses less RAM but takes longer.
     """
 
     scores_list = []
     X_list = []
     y_list = []
-    if len(epochs_list) > 0:
+
+    if epochs_list:
         files = epochs_list
-    for file in files:
+
+    for n, file in enumerate(files):
         epochs = mne.read_epochs(file)
         epochs.pick_types(eeg=True, exclude="bads")
 
-        # if indiv_plot:
-        #     evoked = epochs.average(method='mean')
-        #     evoked.plot()
-        # epochs.event_id = {recode_label(k): v for k, v in epochs.event_id.items()}
-        print(epochs.event_id)
+        if indiv_plot:
+            evoked = epochs.average(method='mean')
+            evoked.plot()
 
-        var1 = list(epochs[var1_events].event_id.values())
-        var2 = list(epochs[var2_events].event_id.values())
+        if extra_event_labels:
+            extra_labels = extra_event_labels[n]
+        else:
+            extra_labels = None
+
+        epochs.event_id = {recode_label(k, extra_labels): v for k, v in epochs.event_id.items()}
+
+        try:
+            var1 = list(epochs[var1_events].event_id.values())
+        except KeyError:
+            var1 = []
+        try:
+            var2 = list(epochs[var2_events].event_id.values())
+        except KeyError:
+            var2 = []
 
         epochs = epochs[var1_events + var2_events]
 
-        try:
-            to_drop = list(epochs[excluded_events].event_id.values())
-            epochs.drop([True if x in to_drop else False for x in list(epochs.events[:, 2])])
-        except KeyError:
-            pass
+        if len(excluded_events) > 0:
+            try:
+                to_drop = list(epochs[excluded_events].event_id.values())
+                epochs.drop([True if x in to_drop else False for x in list(epochs.events[:, 2])])
+            except KeyError:
+                pass
 
         X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
         y = epochs.events[:, 2]
+        times = epochs.times
+        del epochs
 
         y[np.argwhere(np.isin(y, var1)).ravel()] = 0
         y[np.argwhere(np.isin(y, var2)).ravel()] = 1
-
-        X, y = len_match_arrays(X, y, sanity_check=False)
 
         if concat_participants:
             X_list.append(X)
             y_list.append(y)
         else:
-            scores = temporal_decoding(epochs, X, y,
+            X, y = len_match_arrays(X, y, sanity_check=False)
+            scores = temporal_decoding(times, X, y,
                                        filename=Path(output_dir, f'temp_decod_{file.with_suffix("").stem}.png'),
-                                       plotting=indiv_plot, scoring=scoring)
+                                       plotting=indiv_plot, scoring=scoring, jobs=jobs)
             # temporal_generalization(epochs, X, y)
             scores_list.append(scores)
 
     if concat_participants:
         X = np.concatenate(X_list, axis=0)
         y = np.concatenate(y_list, axis=0)
+        X, y = len_match_arrays(X, y, sanity_check=False)
         print(X.shape)
-        temporal_decoding(epochs, X, y,
-                          filename=Path(output_dir, f"group_{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png"),
+        print(np.array(np.unique(y, return_counts=True)))
+        temporal_decoding(times, X, y,
+                          filename=Path(output_dir,
+                                        f"group_{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png".replace('/',
+                                                                                                                '+')),
                           plotting=indiv_plot, scoring=scoring)
     else:
         m_scores = np.mean(scores_list, axis=0)
-
-        fig, ax = plt.subplots()
-        ax.plot(epochs.times, m_scores, label="score")
-        ax.set_ylim([0, 1])
-        ax.axhline(0.5, color="k", linestyle="--", label="chance")
-        ax.set_xlabel("Time")
-        ax.set_ylabel(scoring)
-        ax.legend()
-        ax.axvline(0.0, color="k", linestyle="-")
-        ax.set_title("Sensor space decoding")
-        plt.savefig(Path(output_dir, f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png"), dpi=150)
+        plot_svm_scores(times, m_scores, scoring,
+                        title=f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
+        plt.savefig(Path(output_dir, "Mean_Sensor-space-decoding_plot.png"), dpi=150)
         plt.show(block=True)
 
 
@@ -295,9 +309,6 @@ def test_data_mvpa():
         evoked = epochs.average(method='mean')
         evoked.plot()
 
-    epochs.event_id = {recode_label(k): v for k, v in epochs.event_id.items()}
-    print(epochs.event_id)
-
     var1 = list(epochs[var1_events].event_id.values())
     var2 = list(epochs[var2_events].event_id.values())
 
@@ -319,28 +330,57 @@ def test_data_mvpa():
 
     print(X.shape, y.shape)
 
-    temporal_decoding(epochs, X, y, filename=f'../analyses/temp_decod_test_data.png',
-                               plotting=indiv_plot, scoring=scoring)
+    temporal_decoding(epochs, X, y, filename=f'../analyses/temporal_decode_test_data.png',
+                      plotting=indiv_plot, scoring=scoring)
+
+
+def get_filepaths_from_file(analysis_file):
+    """
+    @param analysis_file: csv file with mne epo.fif files listed
+    @return: list of filepath, list of lists of extra event label metadata
+    """
+    df = pd.read_csv(analysis_file)
+
+    files = []
+    extra = []
+    for idx, row in df.iterrows():
+        files.append(row['epo_path'])
+        # get ppt num and session number
+        extra.append([f"ppt_{row['ppt_num']}", f"sesh_{row['sesh_num']}"])
+
+    return files, extra
 
 
 if '__main__' in __name__:
     # test_data_mvpa()
     # quit()
-    files = Path(
-        '/Volumes/psgroups/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA '
-        'Project/data/Radiologists/output/').glob(
-        'EEGTraining_Rad*.epo.fif')
 
-    # var1_events = ['resp_Abnormal']
-    # var2_events = ['resp_Normal']
+    # '''Path to folder containing eeg data'''
+    # data_directory = '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/output/'
+    # '''Naming scheme for eeg data (asterisk denotes part of string that changes)'''
+    # file_naming_scheme = 'EEGTraining_Rad*.epo.fif'
+    #
+    # # data_directory = '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/AB/output/'
+    # # file_naming_scheme = '*_PPT_*.epo.fif'
+    #
+    # '''Recursively search for files that match pattern'''
+    # files = Path(data_directory).rglob(file_naming_scheme)
+    #
+    # # var1_events = ['resp_Abnormal']
+    # # var2_events = ['resp_Normal']
+    # # var1_events = ['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal']
+    # # var2_events = ['Normal/resp_Normal']
 
-    # var1_events = ['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal']
-    # var2_events = ['Normal/resp_Normal']
+    files, extra = get_filepaths_from_file('/Users/llr510/PycharmProjects/EEGpykit/analyses/MVPA_analysis_list.csv')
+    print(files, extra)
 
     MVPA_analysis(files,
-                  var1_events=['Normal', 'Global'],
-                  var2_events=['Obvious', 'Subtle'],
-                  excluded_events=['Rate', 'Missed'],
+                  var1_events=['sesh_1/Obvious/resp_Abnormal'],
+                  var2_events=['sesh_2/Obvious/resp_Abnormal'],
+                  excluded_events=['Rate', 'Missed', 'ppt_6'],
                   scoring="roc_auc",
                   output_dir='../analyses',
-                  indiv_plot=True)
+                  indiv_plot=False,
+                  concat_participants=True,
+                  extra_event_labels=extra,
+                  jobs=4)

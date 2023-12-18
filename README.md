@@ -9,12 +9,22 @@
   - Requires pyeep and pyeep.so.
     - This is the compiled c bindings for the reader.
     - Only works for the computer it was compiled on.
-    - **Todo: Compiling instructions coming soon**
   - After this step we store the MNE raw object as a .pickle file.
+### Libeep
+- To read ANT cnt files You will need to replace the pyeep.so with your own compiled version from here:
+  - https://github.com/neuromti/tool-libeep/tree/master
+- Run these commands to compile libeep for python:
+```bash
+cd tool-libeep
+mkdir build
+cd build/
+cmake .. -DPYTHON_INCLUDE_DIR=$(python -c "import sysconfig; print(sysconfig.get_path('include'))")  -DPYTHON_LIBRARY=$(python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
+make
+```
+- Then replace the so file in libeep/ with the new one in build/
 ### preprocessor.py
 - Imports read_antcnt to read in data from eeg_data/
 - Automatically preprocesses data to reduce noise and artifacts using MNE and the FASTER protocol
-
 #### EEG PRE-PROCESSING STEPS
 1. Filtering all EEG data with a low bandpass keep 0.5 to 40 hz
 2. Resampling data and keeping samples up to 200 Hz

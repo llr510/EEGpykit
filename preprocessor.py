@@ -581,9 +581,9 @@ def run_with_UI():
     building EEG_Experiment object and outputting preprocessed eeg data.
     """
     box = dialogue_window(title='Preprocessing Setup',
-                          default_plist='/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/experiment_participant_list.csv',
-                          default_output='/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/output',
-                          default_trg_labels='/Volumes/psgroups-1/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/experiment_trigger_labels.csv')
+                          default_plist='/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/experiment_participant_list.csv',
+                          default_output='/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/output',
+                          default_trg_labels='/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/experiment_trigger_labels.csv')
     box.show()
     settings = box.get_output()
     print(settings)

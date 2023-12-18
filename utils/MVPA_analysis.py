@@ -1,3 +1,4 @@
+import pickle
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
@@ -175,7 +176,8 @@ def temporal_generalization(epochs, X, y, filename='temp_gen_plot.png', plotting
 
 
 def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="roc_auc", output_dir='',
-                  indiv_plot=False, concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1):
+                  indiv_plot=False, concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1,
+                  pickle_ouput=False):
     """
     Performs MVPA analysis over multiple participants.
     If you want to compare across multiple sessions concat_participants must be true
@@ -197,11 +199,14 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
     X_list = []
     y_list = []
 
-    if epochs_list:
-        files = epochs_list
+    if not Path(output_dir).exists():
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     for n, file in enumerate(files):
-        epochs = mne.read_epochs(file)
+        if epochs_list:
+            epochs = epochs_list[n]
+        else:
+            epochs = mne.read_epochs(file)
         epochs.pick_types(eeg=True, exclude="bads")
 
         if indiv_plot:
@@ -234,6 +239,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
                 pass
 
         X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
+
         y = epochs.events[:, 2]
         times = epochs.times
         del epochs
@@ -241,34 +247,46 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
         y[np.argwhere(np.isin(y, var1)).ravel()] = 0
         y[np.argwhere(np.isin(y, var2)).ravel()] = 1
 
-        if concat_participants:
+        if pickle_ouput:
+            # X, y = len_match_arrays(X, y)
+            d = {'data': X, 'label': y, 'key': {0: "normal", 1: "global"}}
+            with open(Path(output_dir, f'{Path(file).with_suffix("").stem}.pkl'), 'wb') as f:
+                pickle.dump(d, f)
+
+        elif concat_participants:
             X_list.append(X)
             y_list.append(y)
         else:
-            X, y = len_match_arrays(X, y, sanity_check=False)
+            X, y = len_match_arrays(X, y)
             scores = temporal_decoding(times, X, y,
                                        filename=Path(output_dir, f'temp_decod_{Path(file).with_suffix("").stem}.png'),
                                        plotting=indiv_plot, scoring=scoring, jobs=jobs)
             # temporal_generalization(epochs, X, y)
             scores_list.append(scores)
 
-    if concat_participants:
-        X = np.concatenate(X_list, axis=0)
-        y = np.concatenate(y_list, axis=0)
-        X, y = len_match_arrays(X, y, sanity_check=False)
-        print(X.shape)
-        print(np.array(np.unique(y, return_counts=True)))
-        temporal_decoding(times, X, y,
-                          filename=Path(output_dir,
-                                        f"group_{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png".replace('/',
-                                                                                                                '+')),
-                          plotting=indiv_plot, scoring=scoring)
-    else:
-        m_scores = np.mean(scores_list, axis=0)
-        plot_svm_scores(times, m_scores, scoring,
-                        title=f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
-        plt.savefig(Path(output_dir, "Mean_Sensor-space-decoding_plot.png"), dpi=150)
-        plt.show(block=True)
+    if not pickle_ouput:
+        if concat_participants:
+            X = np.concatenate(X_list, axis=0)
+            y = np.concatenate(y_list, axis=0)
+            X, y = len_match_arrays(X, y)
+            print(X.shape)
+            print(np.array(np.unique(y, return_counts=True)))
+            scores = temporal_decoding(times, X, y,
+                              filename=Path(output_dir,f"group_{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png".replace('/','+')),
+                              plotting=indiv_plot, scoring=scoring, jobs=jobs)
+            all_data = pd.DataFrame([scores], columns=times)
+            all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
+        else:
+            m_scores = np.mean(scores_list, axis=0)
+            plot_svm_scores(times, m_scores, scoring,
+                            title=f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
+            plt.savefig(Path(output_dir, "Mean_Sensor-space-decoding_plot.png"), dpi=150)
+            # plt.show(block=True)
+
+            all_data = pd.DataFrame(scores_list, columns=times)
+            info = pd.DataFrame(extra_event_labels, columns=['ppt_num', 'sesh_num'])
+            all_data = pd.concat([info, all_data], axis=1)
+            all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
 
 
 def test_data_mvpa():
@@ -336,6 +354,10 @@ def test_data_mvpa():
 
 def get_filepaths_from_file(analysis_file):
     """
+    Reads a path list file with the path of each input epoched data file.
+    Gets participant number and session and returns that information so it can be added to the trigger labels for
+    group analyses.
+
     @param analysis_file: csv file with mne epo.fif files listed
     @return: list of filepath, list of lists of extra event label metadata
     """
@@ -352,23 +374,144 @@ def get_filepaths_from_file(analysis_file):
 
 
 if '__main__' in __name__:
-    # test_data_mvpa()
-    # quit()
+    '''Session level analysis'''
 
     files, extra = get_filepaths_from_file(
-        '/Users/llr510/PycharmProjects/EEGpykit/analyses/MVPA_analysis_list_sesh1.csv')
-    print(files, extra)
+        '/analyses/MVPA/MVPA_analysis_list.csv')
+
+    epochs_list = []
+    for file in files:
+        epochs = mne.read_epochs(file)
+        epochs_list.append(epochs)
+
+    MVPA_analysis(files,
+                  var1_events=['sesh_1/Normal'],
+                  var2_events=['sesh_2/Normal'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives/across-training/normal/',
+                  indiv_plot=False,
+                  concat_participants=True,
+                  extra_event_labels=extra,
+                  jobs=1,
+                  epochs_list=epochs_list)
+
+    MVPA_analysis(files,
+                  var1_events=['sesh_1/Obvious', 'sesh_1/Subtle'],
+                  var2_events=['sesh_2/Obvious', 'sesh_2/Subtle'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives/across-training/abnormal/',
+                  indiv_plot=False,
+                  concat_participants=True,
+                  extra_event_labels=extra,
+                  jobs=1,
+                  epochs_list=epochs_list)
+
+    MVPA_analysis(files,
+                  var1_events=['sesh_1/Global'],
+                  var2_events=['sesh_2/Global'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives/across-training/global/',
+                  indiv_plot=False,
+                  concat_participants=True,
+                  extra_event_labels=extra,
+                  jobs=1,
+                  epochs_list=epochs_list)
+
+    quit()
+
+    '''Inividual level analysis'''
+
+    files, extra = get_filepaths_from_file(
+        '/analyses/MVPA/MVPA_analysis_list_sesh1.csv')
+
+    epochs_list = []
+    for file in files:
+        epochs = mne.read_epochs(file)
+        epochs_list.append(epochs)
 
     MVPA_analysis(files,
                   var1_events=['Normal'],
                   var2_events=['Obvious', 'Subtle'],
                   excluded_events=['Rate', 'Missed'],
                   scoring="roc_auc",
-                  output_dir='../analyses',
+                  output_dir='../analyses/MVPA/naives/pre-training/normal_vs_abnormal/',
                   indiv_plot=False,
                   concat_participants=False,
                   extra_event_labels=extra,
-                  jobs=-1)
+                  jobs=-1,
+                  epochs_list=epochs_list)
+
+    MVPA_analysis(files,
+                  var1_events=['Normal'],
+                  var2_events=['Global'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives/pre-training/normal_vs_global/',
+                  indiv_plot=False,
+                  concat_participants=False,
+                  extra_event_labels=extra,
+                  jobs=-1,
+                  epochs_list=epochs_list)
+
+    files, extra = get_filepaths_from_file(
+        '/analyses/MVPA/MVPA_analysis_list_sesh2.csv')
+
+    epochs_list = []
+    for file in files:
+        epochs = mne.read_epochs(file)
+        epochs_list.append(epochs)
+
+    MVPA_analysis(files,
+                  var1_events=['Normal'],
+                  var2_events=['Obvious', 'Subtle'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives/post-training/normal_vs_abnormal/',
+                  indiv_plot=False,
+                  concat_participants=False,
+                  extra_event_labels=extra,
+                  jobs=-1,
+                  epochs_list=epochs_list)
+
+    MVPA_analysis(files,
+                  var1_events=['Normal'],
+                  var2_events=['Global'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives/post-training/normal_vs_global/',
+                  indiv_plot=False,
+                  concat_participants=False,
+                  extra_event_labels=extra,
+                  jobs=-1,
+                  epochs_list=epochs_list)
+
+
+    # MVPA_analysis(files,
+    #               var1_events=['Normal'],
+    #               var2_events=['Obvious', 'Subtle'],
+    #               excluded_events=['Rate'],#, 'Missed'
+    #               scoring="roc_auc",
+    #               output_dir='../analyses/rads_data_pkls/normal_v_abnormal/case_balanced',
+    #               indiv_plot=False,
+    #               concat_participants=False,
+    #               extra_event_labels=extra,
+    #               pickle_ouput=True,
+    #               jobs=-1)
+
+    # MVPA_analysis(files,
+    #               var1_events=['Normal'],
+    #               var2_events=['Global'],
+    #               excluded_events=['Rate'],#, 'Missed'
+    #               scoring="roc_auc",
+    #               output_dir='../analyses/rads_data_pkls/normal_v_global/case_imbalanced',
+    #               indiv_plot=False,
+    #               concat_participants=False,
+    #               extra_event_labels=extra,
+    #               pickle_ouput=True,
+    #               jobs=-1)
 
     # MVPA_analysis(files,
     #               var1_events=['sesh_1/Obvious/resp_Abnormal'],

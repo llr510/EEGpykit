@@ -155,7 +155,6 @@ def temporal_generalization(epochs, X, y, filename='temp_gen_plot.png', plotting
     # define the Temporal generalization object
     time_gen = GeneralizingEstimator(clf, n_jobs=-1, scoring=scoring, verbose=True)
 
-    # again, cv=3 just for speed
     scores = cross_val_multiscore(time_gen, X, y, cv=5, n_jobs=-1)
 
     # Mean scores across cross-validation splits
@@ -173,6 +172,69 @@ def temporal_generalization(epochs, X, y, filename='temp_gen_plot.png', plotting
 
     plt.savefig(filename, dpi=150)
     plt.show(block=True)
+
+
+def test_data_mvpa():
+    """
+    Loads some MNE test data, preprocesses it and runs an MVPA analysis on it
+    """
+    sample_data_folder = mne.datasets.sample.data_path()
+    sample_data_raw_file = (
+            sample_data_folder / "MEG" / "sample" / "sample_audvis_filt-0-40_raw.fif"
+    )
+    raw = mne.io.read_raw_fif(sample_data_raw_file)
+    from preprocessor import preprocess_with_faster
+    event_dict = {
+        "auditory/left": 1,
+        "auditory/right": 2,
+        "visual/left": 3,
+        "visual/right": 4,
+        "smiley": 5,
+        "buttonpress": 32,
+    }
+    events = mne.find_events(raw, stim_channel="STI 014")
+    picks = mne.pick_types(raw.info, meg=False, eeg=True, eog=True)
+
+    epochs, evoked_before, evoked_after, logdict, report = preprocess_with_faster(raw, events, event_ids=event_dict,
+                                                                                  picks=picks, tmin=-0.2, bmax=0,
+                                                                                  tmax=0.5, plotting=False,
+                                                                                  report=None)
+
+    scoring = "roc_auc"
+    var1_events = ['auditory']
+    var2_events = ['visual']
+    excluded_events = ['buttonpress']
+    indiv_plot = True
+
+    epochs.pick_types(eeg=True, exclude="bads")
+
+    if indiv_plot:
+        evoked = epochs.average(method='mean')
+        evoked.plot()
+
+    var1 = list(epochs[var1_events].event_id.values())
+    var2 = list(epochs[var2_events].event_id.values())
+
+    epochs = epochs[var1_events + var2_events]
+
+    try:
+        to_drop = list(epochs[excluded_events].event_id.values())
+        epochs.drop([True if x in to_drop else False for x in list(epochs.events[:, 2])])
+    except KeyError:
+        pass
+
+    X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
+    y = epochs.events[:, 2]
+
+    y[np.argwhere(np.isin(y, var1)).ravel()] = 0
+    y[np.argwhere(np.isin(y, var2)).ravel()] = 1
+
+    X, y = len_match_arrays(X, y)
+
+    print(X.shape, y.shape)
+
+    temporal_decoding(epochs, X, y, filename=f'../analyses/temporal_decode_test_data.png',
+                      plotting=indiv_plot, scoring=scoring)
 
 
 def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="roc_auc", output_dir='',
@@ -289,69 +351,6 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
 
 
-def test_data_mvpa():
-    """
-    Loads some MNE test data, preprocesses it and runs an MVPA analysis on it
-    """
-    sample_data_folder = mne.datasets.sample.data_path()
-    sample_data_raw_file = (
-            sample_data_folder / "MEG" / "sample" / "sample_audvis_filt-0-40_raw.fif"
-    )
-    raw = mne.io.read_raw_fif(sample_data_raw_file)
-    from preprocessor import preprocess_with_faster
-    event_dict = {
-        "auditory/left": 1,
-        "auditory/right": 2,
-        "visual/left": 3,
-        "visual/right": 4,
-        "smiley": 5,
-        "buttonpress": 32,
-    }
-    events = mne.find_events(raw, stim_channel="STI 014")
-    picks = mne.pick_types(raw.info, meg=False, eeg=True, eog=True)
-
-    epochs, evoked_before, evoked_after, logdict, report = preprocess_with_faster(raw, events, event_ids=event_dict,
-                                                                                  picks=picks, tmin=-0.2, bmax=0,
-                                                                                  tmax=0.5, plotting=False,
-                                                                                  report=None)
-
-    scoring = "roc_auc"
-    var1_events = ['auditory']
-    var2_events = ['visual']
-    excluded_events = ['buttonpress']
-    indiv_plot = True
-
-    epochs.pick_types(eeg=True, exclude="bads")
-
-    if indiv_plot:
-        evoked = epochs.average(method='mean')
-        evoked.plot()
-
-    var1 = list(epochs[var1_events].event_id.values())
-    var2 = list(epochs[var2_events].event_id.values())
-
-    epochs = epochs[var1_events + var2_events]
-
-    try:
-        to_drop = list(epochs[excluded_events].event_id.values())
-        epochs.drop([True if x in to_drop else False for x in list(epochs.events[:, 2])])
-    except KeyError:
-        pass
-
-    X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
-    y = epochs.events[:, 2]
-
-    y[np.argwhere(np.isin(y, var1)).ravel()] = 0
-    y[np.argwhere(np.isin(y, var2)).ravel()] = 1
-
-    X, y = len_match_arrays(X, y)
-
-    print(X.shape, y.shape)
-
-    temporal_decoding(epochs, X, y, filename=f'../analyses/temporal_decode_test_data.png',
-                      plotting=indiv_plot, scoring=scoring)
-
-
 def get_filepaths_from_file(analysis_file):
     """
     Reads a path list file with the path of each input epoched data file.
@@ -373,153 +372,4 @@ def get_filepaths_from_file(analysis_file):
     return files, extra
 
 
-if '__main__' in __name__:
-    '''Session level analysis'''
 
-    files, extra = get_filepaths_from_file(
-        '/analyses/MVPA/MVPA_analysis_list.csv')
-
-    epochs_list = []
-    for file in files:
-        epochs = mne.read_epochs(file)
-        epochs_list.append(epochs)
-
-    MVPA_analysis(files,
-                  var1_events=['sesh_1/Normal'],
-                  var2_events=['sesh_2/Normal'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives/across-training/normal/',
-                  indiv_plot=False,
-                  concat_participants=True,
-                  extra_event_labels=extra,
-                  jobs=1,
-                  epochs_list=epochs_list)
-
-    MVPA_analysis(files,
-                  var1_events=['sesh_1/Obvious', 'sesh_1/Subtle'],
-                  var2_events=['sesh_2/Obvious', 'sesh_2/Subtle'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives/across-training/abnormal/',
-                  indiv_plot=False,
-                  concat_participants=True,
-                  extra_event_labels=extra,
-                  jobs=1,
-                  epochs_list=epochs_list)
-
-    MVPA_analysis(files,
-                  var1_events=['sesh_1/Global'],
-                  var2_events=['sesh_2/Global'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives/across-training/global/',
-                  indiv_plot=False,
-                  concat_participants=True,
-                  extra_event_labels=extra,
-                  jobs=1,
-                  epochs_list=epochs_list)
-
-    quit()
-
-    '''Inividual level analysis'''
-
-    files, extra = get_filepaths_from_file(
-        '/analyses/MVPA/MVPA_analysis_list_sesh1.csv')
-
-    epochs_list = []
-    for file in files:
-        epochs = mne.read_epochs(file)
-        epochs_list.append(epochs)
-
-    MVPA_analysis(files,
-                  var1_events=['Normal'],
-                  var2_events=['Obvious', 'Subtle'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives/pre-training/normal_vs_abnormal/',
-                  indiv_plot=False,
-                  concat_participants=False,
-                  extra_event_labels=extra,
-                  jobs=-1,
-                  epochs_list=epochs_list)
-
-    MVPA_analysis(files,
-                  var1_events=['Normal'],
-                  var2_events=['Global'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives/pre-training/normal_vs_global/',
-                  indiv_plot=False,
-                  concat_participants=False,
-                  extra_event_labels=extra,
-                  jobs=-1,
-                  epochs_list=epochs_list)
-
-    files, extra = get_filepaths_from_file(
-        '/analyses/MVPA/MVPA_analysis_list_sesh2.csv')
-
-    epochs_list = []
-    for file in files:
-        epochs = mne.read_epochs(file)
-        epochs_list.append(epochs)
-
-    MVPA_analysis(files,
-                  var1_events=['Normal'],
-                  var2_events=['Obvious', 'Subtle'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives/post-training/normal_vs_abnormal/',
-                  indiv_plot=False,
-                  concat_participants=False,
-                  extra_event_labels=extra,
-                  jobs=-1,
-                  epochs_list=epochs_list)
-
-    MVPA_analysis(files,
-                  var1_events=['Normal'],
-                  var2_events=['Global'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives/post-training/normal_vs_global/',
-                  indiv_plot=False,
-                  concat_participants=False,
-                  extra_event_labels=extra,
-                  jobs=-1,
-                  epochs_list=epochs_list)
-
-
-    # MVPA_analysis(files,
-    #               var1_events=['Normal'],
-    #               var2_events=['Obvious', 'Subtle'],
-    #               excluded_events=['Rate'],#, 'Missed'
-    #               scoring="roc_auc",
-    #               output_dir='../analyses/rads_data_pkls/normal_v_abnormal/case_balanced',
-    #               indiv_plot=False,
-    #               concat_participants=False,
-    #               extra_event_labels=extra,
-    #               pickle_ouput=True,
-    #               jobs=-1)
-
-    # MVPA_analysis(files,
-    #               var1_events=['Normal'],
-    #               var2_events=['Global'],
-    #               excluded_events=['Rate'],#, 'Missed'
-    #               scoring="roc_auc",
-    #               output_dir='../analyses/rads_data_pkls/normal_v_global/case_imbalanced',
-    #               indiv_plot=False,
-    #               concat_participants=False,
-    #               extra_event_labels=extra,
-    #               pickle_ouput=True,
-    #               jobs=-1)
-
-    # MVPA_analysis(files,
-    #               var1_events=['sesh_1/Obvious/resp_Abnormal'],
-    #               var2_events=['sesh_2/Obvious/resp_Abnormal'],
-    #               excluded_events=['Rate', 'Missed', 'ppt_6'],
-    #               scoring="roc_auc",
-    #               output_dir='../analyses',
-    #               indiv_plot=False,
-    #               concat_participants=True,
-    #               extra_event_labels=extra,
-    #               jobs=4)

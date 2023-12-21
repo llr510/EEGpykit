@@ -75,7 +75,7 @@ def resample_and_bandpass_raw(raw_fname, ref_channel, eog_channel, montage,
 
     # Keep whatever EEG reference the amplifier used for now. After the data is
     # cleaned, we will re-reference to an average reference.
-    raw, _ = io.set_eeg_reference(raw, [ref_channel])
+    raw, _ = mne.set_eeg_reference(raw, [ref_channel])
 
     report.add_raw(raw=raw, title='Raw before filtering')
     picks = mne.pick_types(raw.info, eeg=True, eog=True)

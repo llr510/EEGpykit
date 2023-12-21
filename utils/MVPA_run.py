@@ -24,7 +24,7 @@ def run_AB_analysis():
                       var1_events=[f'{stim}/T2/S-S'],
                       var2_events=[f'{stim}/T2/NS-NS'],
                       scoring="roc_auc",
-                      output_dir='../analyses/MVPA-AB/{stim}/T2_S-SvsNS-NS/',
+                      output_dir=f'../analyses/MVPA-AB/{stim}/T2_S-SvsNS-NS/',
                       indiv_plot=False,
                       concat_participants=False,
                       jobs=-1,

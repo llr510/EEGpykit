@@ -277,10 +277,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
 
         if extra_event_labels:
             extra_labels = extra_event_labels[n]
-        else:
-            extra_labels = None
-
-        epochs.event_id = {recode_label(k, extra_labels): v for k, v in epochs.event_id.items()}
+            epochs.event_id = {recode_label(k, extra_labels): v for k, v in epochs.event_id.items()}
 
         try:
             var1 = list(epochs[var1_events].event_id.values())

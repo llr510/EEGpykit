@@ -24,7 +24,7 @@ def run_with_cli():
 
     args = parser.parse_args()
 
-    assert args.output.exists()
+    assert Path(args.output).exists()
 
     ANTwave64 = mne.channels.read_custom_montage(fname=Path('montages', 'waveguard64_rescaled_small.xyz'),
                                                  coord_frame="unknown")

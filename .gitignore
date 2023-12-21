@@ -13,3 +13,4 @@ MVPA/
 *.png
 *.fif
 *.pkl
+*.so

@@ -195,7 +195,8 @@ def preprocess_with_faster(raw, events, event_ids, picks, tmin=-0.5, bmax=0, tma
     # Compute evoked after cleaning, using an average EEG reference
     # Second filtering to catch any high frequency electrical noise
     # fir works better here for catching 50 Hz electrical noise
-    epochs.filter(l_freq=None, h_freq=40, method='fir', picks=mne.pick_types(epochs.info, eeg=True, eog=True))  # , h_trans_bandwidth=9)
+    epochs.filter(l_freq=None, h_freq=40, method='fir',
+                  picks=mne.pick_types(epochs.info, eeg=True, eog=True))  # , h_trans_bandwidth=9)
 
     epochs.set_eeg_reference('average')
     epochs.apply_baseline(baseline)
@@ -203,7 +204,8 @@ def preprocess_with_faster(raw, events, event_ids, picks, tmin=-0.5, bmax=0, tma
         report.add_epochs(epochs=epochs, title='Epochs after FASTER')
     evoked_after = epochs.average()
     if report:
-        report.add_evokeds(evokeds=[evoked_before, evoked_after], titles=['Evoked before FASTER', 'Evoked after FASTER'])
+        report.add_evokeds(evokeds=[evoked_before, evoked_after],
+                           titles=['Evoked before FASTER', 'Evoked after FASTER'])
 
     ##############################################################################
     if plotting:
@@ -559,7 +561,8 @@ class EEG_Experiment:
                 continue
 
             if 'extra_events_path' in self.exp_file.columns:
-                additional_events_fname = self.exp_file[self.exp_file['pid'] == participant.pid]['extra_events_path'].values[0]
+                additional_events_fname = \
+                    self.exp_file[self.exp_file['pid'] == participant.pid]['extra_events_path'].values[0]
                 participant.replace_events(Path(additional_events_fname))
             elif additional_events_fname is not None:
                 participant.replace_events(Path(participant.data_path, additional_events_fname).with_suffix('.csv'))

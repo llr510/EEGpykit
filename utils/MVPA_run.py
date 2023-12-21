@@ -10,37 +10,47 @@ def run_AB_analysis():
     Compare T2 in Block 1 (S-S) to T2 in Block 4 (NS-NS) across lags
 
     """
-    files, extra = get_filepaths_from_file(
-        '../analyses/MVPA-AB/MVPA_analysis_list.csv')
 
-    epochs_list = []
-    for file in files:
-        epochs = mne.read_epochs(file)
-        epochs_list.append(epochs)
+    for stim in ['scene', 'dot']:
+        files, extra = get_filepaths_from_file(
+            f'../analyses/MVPA-AB/MVPA_analysis_list_{stim}.csv')
 
-    MVPA_analysis(files,
-                  var1_events=['scene/T2/S-S'],
-                  var2_events=['scene/T2/NS-NS'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir='../analyses/MVPA-AB/scene/T2_S-SvsNS-NS/',
-                  indiv_plot=False,
-                  concat_participants=False,
-                  extra_event_labels=extra,
-                  jobs=-1,
-                  epochs_list=epochs_list)
+        epochs_list = []
+        for file in files:
+            epochs = mne.read_epochs(file)
+            epochs_list.append(epochs)
 
-    MVPA_analysis(files,
-                  var1_events=['scene/T1/S-S/lag1'],
-                  var2_events=['scene/T2/S-S/lag1'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir='../analyses/MVPA-AB/scene/T2_S-SvsNS-NS/',
-                  indiv_plot=False,
-                  concat_participants=False,
-                  extra_event_labels=extra,
-                  jobs=-1,
-                  epochs_list=epochs_list)
+        MVPA_analysis(files,
+                      var1_events=[f'{stim}/T2/S-S'],
+                      var2_events=[f'{stim}/T2/NS-NS'],
+                      scoring="roc_auc",
+                      output_dir='../analyses/MVPA-AB/{stim}/T2_S-SvsNS-NS/',
+                      indiv_plot=False,
+                      concat_participants=False,
+                      jobs=-1,
+                      epochs_list=epochs_list)
+
+        for condition in ['S-S', 'NS-NS']:
+            MVPA_analysis(files,
+                          var1_events=[f'{stim}/T1/{condition}'],
+                          var2_events=[f'{stim}/T2/{condition}'],
+                          scoring="roc_auc",
+                          output_dir=f'../analyses/MVPA-AB/{stim}/T1vsT2_{condition}/all_lags',
+                          indiv_plot=False,
+                          concat_participants=False,
+                          jobs=-1,
+                          epochs_list=epochs_list)
+
+            for lag in [1, 2, 3, 4]:
+                MVPA_analysis(files,
+                              var1_events=[f'{stim}/T1/{condition}/lag{lag}'],
+                              var2_events=[f'{stim}/T2/{condition}/lag{lag}'],
+                              scoring="roc_auc",
+                              output_dir=f'../analyses/MVPA-AB/{stim}/T1vsT2_{condition}/lag{lag}',
+                              indiv_plot=False,
+                              concat_participants=False,
+                              jobs=-1,
+                              epochs_list=epochs_list)
 
 
 def run_across_training():
@@ -199,4 +209,5 @@ def run_pickle_rads():
 
 
 if '__main__' in __name__:
-    run_within_training()
+    # run_within_training()
+    run_AB_analysis()

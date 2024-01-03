@@ -153,7 +153,7 @@ def run_within_training():
                   epochs_list=epochs_list)
 
     files, extra = get_filepaths_from_file(
-        '/analyses/MVPA/MVPA_analysis_list_sesh2.csv')
+        '../analyses/MVPA/MVPA_analysis_list_sesh2.csv')
 
     epochs_list = []
     for file in files:
@@ -314,7 +314,7 @@ def run_within_training_hits_tnegs():
                   epochs_list=epochs_list)
 
     files, extra = get_filepaths_from_file(
-        '/analyses/MVPA-viking/MVPA_analysis_list_sesh2.csv')
+        '../analyses/MVPA-viking/MVPA_analysis_list_sesh2.csv')
 
     epochs_list = []
     for file in files:

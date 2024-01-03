@@ -10,6 +10,16 @@ def run_AB_analysis():
     Compare T2 in Block 1 (S-S) to T2 in Block 4 (NS-NS) across lags
 
     """
+    files, extra = get_filepaths_from_file(
+        f'../analyses/MVPA-AB/MVPA_analysis_list_all.csv')
+    MVPA_analysis(files,
+                  var1_events=[f'dot'],
+                  var2_events=[f'scene'],
+                  scoring="roc_auc",
+                  output_dir=f'../analyses/MVPA-AB/dot_vs_scene/',
+                  indiv_plot=False,
+                  concat_participants=True,
+                  jobs=-1)
 
     for stim in ['scene', 'dot']:
         files, extra = get_filepaths_from_file(
@@ -102,7 +112,13 @@ def run_across_training():
 
 
 def run_within_training():
-    """Individual level analysis"""
+    """
+    Individual level analysis
+
+    In block 1 (S-S condition) compare T1 vs T2 (Lag 1 vs 4; Lag 2 vs 4; Lag 3 vs 4)
+    In block 4 (NS-NS condition) compare T1 vs T2 (Lag 1 vs 4; Lag 2 vs 4; Lag 3 vs 4)
+    Compare T2 in Block 1 (S-S) to T2 in Block 4 (NS-NS) across lags
+    """
 
     files, extra = get_filepaths_from_file(
         '../analyses/MVPA/MVPA_analysis_list_sesh1.csv')
@@ -208,6 +224,130 @@ def run_pickle_rads():
                   jobs=4)
 
 
+def run_across_training_hits_tnegs():
+    """Session level analysis"""
+
+    files, extra = get_filepaths_from_file(
+        '../analyses/MVPA/MVPA_analysis_list.csv')
+
+    epochs_list = []
+    for file in files:
+        epochs = mne.read_epochs(file)
+        epochs_list.append(epochs)
+
+    MVPA_analysis(files,
+                  var1_events=['sesh_1/Normal/resp_Normal'],
+                  var2_events=['sesh_2/Normal/resp_Normal'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives/across-training_hits-tnegs/normal/',
+                  indiv_plot=False,
+                  concat_participants=True,
+                  extra_event_labels=extra,
+                  jobs=-1,
+                  epochs_list=epochs_list)
+
+    MVPA_analysis(files,
+                  var1_events=['sesh_1/Obvious/resp_Abnormal', 'sesh_1/Subtle/resp_Abnormal'],
+                  var2_events=['sesh_2/Obvious/resp_Abnormal', 'sesh_2/Subtle/resp_Abnormal'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives/across-training_hits-tnegs/abnormal/',
+                  indiv_plot=False,
+                  concat_participants=True,
+                  extra_event_labels=extra,
+                  jobs=-1,
+                  epochs_list=epochs_list)
+
+    MVPA_analysis(files,
+                  var1_events=['sesh_1/Global/resp_Abnormal'],
+                  var2_events=['sesh_2/Global/resp_Abnormal'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives/across-training_hits-tnegs/global/',
+                  indiv_plot=False,
+                  concat_participants=True,
+                  extra_event_labels=extra,
+                  jobs=-1,
+                  epochs_list=epochs_list)
+
+
+def run_within_training_hits_tnegs():
+    """
+    Individual level analysis
+
+    In block 1 (S-S condition) compare T1 vs T2 (Lag 1 vs 4; Lag 2 vs 4; Lag 3 vs 4)
+    In block 4 (NS-NS condition) compare T1 vs T2 (Lag 1 vs 4; Lag 2 vs 4; Lag 3 vs 4)
+    Compare T2 in Block 1 (S-S) to T2 in Block 4 (NS-NS) across lags
+    """
+
+    files, extra = get_filepaths_from_file(
+        '../analyses/MVPA/MVPA_analysis_list_sesh1.csv')
+
+    epochs_list = []
+    for file in files:
+        epochs = mne.read_epochs(file)
+        epochs_list.append(epochs)
+
+    MVPA_analysis(files,
+                  var1_events=['Normal/resp_Normal'],
+                  var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives/pre-training_hits-tnegs/normal_vs_abnormal/',
+                  indiv_plot=False,
+                  concat_participants=False,
+                  extra_event_labels=extra,
+                  jobs=-1,
+                  epochs_list=epochs_list)
+
+    MVPA_analysis(files,
+                  var1_events=['Normal/resp_Normal'],
+                  var2_events=['Global/resp_Abnormal'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives/pre-training_hits-tnegs/normal_vs_global/',
+                  indiv_plot=False,
+                  concat_participants=False,
+                  extra_event_labels=extra,
+                  jobs=-1,
+                  epochs_list=epochs_list)
+
+    files, extra = get_filepaths_from_file(
+        '/analyses/MVPA/MVPA_analysis_list_sesh2.csv')
+
+    epochs_list = []
+    for file in files:
+        epochs = mne.read_epochs(file)
+        epochs_list.append(epochs)
+
+    MVPA_analysis(files,
+                  var1_events=['Normal/resp_Normal'],
+                  var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives/post-training_hits-tnegs/normal_vs_abnormal/',
+                  indiv_plot=False,
+                  concat_participants=False,
+                  extra_event_labels=extra,
+                  jobs=-1,
+                  epochs_list=epochs_list)
+
+    MVPA_analysis(files,
+                  var1_events=['Normal/resp_Normal'],
+                  var2_events=['Global/resp_Abnormal'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives/post-training_hits-tnegs/normal_vs_global/',
+                  indiv_plot=False,
+                  concat_participants=False,
+                  extra_event_labels=extra,
+                  jobs=-1,
+                  epochs_list=epochs_list)
+
 if '__main__' in __name__:
     # run_within_training()
-    run_AB_analysis()
+    # run_AB_analysis()
+
+    run_within_training_hits_tnegs()
+    run_across_training_hits_tnegs()

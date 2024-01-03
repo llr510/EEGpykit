@@ -228,7 +228,7 @@ def run_across_training_hits_tnegs():
     """Session level analysis"""
 
     files, extra = get_filepaths_from_file(
-        '../analyses/MVPA/MVPA_analysis_list.csv')
+        '../analyses/MVPA-viking/MVPA_analysis_list.csv')
 
     epochs_list = []
     for file in files:
@@ -240,7 +240,7 @@ def run_across_training_hits_tnegs():
                   var2_events=['sesh_2/Normal/resp_Normal'],
                   excluded_events=['Rate', 'Missed'],
                   scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives/across-training_hits-tnegs/normal/',
+                  output_dir='../analyses/MVPA-viking/naives/across-training_hits-tnegs/normal/',
                   indiv_plot=False,
                   concat_participants=True,
                   extra_event_labels=extra,
@@ -252,7 +252,7 @@ def run_across_training_hits_tnegs():
                   var2_events=['sesh_2/Obvious/resp_Abnormal', 'sesh_2/Subtle/resp_Abnormal'],
                   excluded_events=['Rate', 'Missed'],
                   scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives/across-training_hits-tnegs/abnormal/',
+                  output_dir='../analyses/MVPA-viking/naives/across-training_hits-tnegs/abnormal/',
                   indiv_plot=False,
                   concat_participants=True,
                   extra_event_labels=extra,
@@ -264,7 +264,7 @@ def run_across_training_hits_tnegs():
                   var2_events=['sesh_2/Global/resp_Abnormal'],
                   excluded_events=['Rate', 'Missed'],
                   scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives/across-training_hits-tnegs/global/',
+                  output_dir='../analyses/MVPA-viking/naives/across-training_hits-tnegs/global/',
                   indiv_plot=False,
                   concat_participants=True,
                   extra_event_labels=extra,
@@ -282,7 +282,7 @@ def run_within_training_hits_tnegs():
     """
 
     files, extra = get_filepaths_from_file(
-        '../analyses/MVPA/MVPA_analysis_list_sesh1.csv')
+        '../analyses/MVPA-viking/MVPA_analysis_list_sesh1.csv')
 
     epochs_list = []
     for file in files:
@@ -294,7 +294,7 @@ def run_within_training_hits_tnegs():
                   var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
                   excluded_events=['Rate', 'Missed'],
                   scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives/pre-training_hits-tnegs/normal_vs_abnormal/',
+                  output_dir='../analyses/MVPA-viking/naives/pre-training_hits-tnegs/normal_vs_abnormal/',
                   indiv_plot=False,
                   concat_participants=False,
                   extra_event_labels=extra,
@@ -306,7 +306,7 @@ def run_within_training_hits_tnegs():
                   var2_events=['Global/resp_Abnormal'],
                   excluded_events=['Rate', 'Missed'],
                   scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives/pre-training_hits-tnegs/normal_vs_global/',
+                  output_dir='../analyses/MVPA-viking/naives/pre-training_hits-tnegs/normal_vs_global/',
                   indiv_plot=False,
                   concat_participants=False,
                   extra_event_labels=extra,
@@ -314,7 +314,7 @@ def run_within_training_hits_tnegs():
                   epochs_list=epochs_list)
 
     files, extra = get_filepaths_from_file(
-        '/analyses/MVPA/MVPA_analysis_list_sesh2.csv')
+        '/analyses/MVPA-viking/MVPA_analysis_list_sesh2.csv')
 
     epochs_list = []
     for file in files:
@@ -326,7 +326,7 @@ def run_within_training_hits_tnegs():
                   var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
                   excluded_events=['Rate', 'Missed'],
                   scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives/post-training_hits-tnegs/normal_vs_abnormal/',
+                  output_dir='../analyses/MVPA-viking/naives/post-training_hits-tnegs/normal_vs_abnormal/',
                   indiv_plot=False,
                   concat_participants=False,
                   extra_event_labels=extra,
@@ -338,7 +338,7 @@ def run_within_training_hits_tnegs():
                   var2_events=['Global/resp_Abnormal'],
                   excluded_events=['Rate', 'Missed'],
                   scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives/post-training_hits-tnegs/normal_vs_global/',
+                  output_dir='../analyses/MVPA-viking/naives/post-training_hits-tnegs/normal_vs_global/',
                   indiv_plot=False,
                   concat_participants=False,
                   extra_event_labels=extra,

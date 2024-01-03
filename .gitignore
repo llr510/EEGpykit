@@ -5,7 +5,6 @@
 venv/
 __pycache__/
 .idea/
-MVPA/
 # Ignore large data files and images
 ~$*
 *.jpg

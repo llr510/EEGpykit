@@ -20,6 +20,16 @@ from mne.decoding import (
     Vectorizer,
     CSP,
 )
+from random import shuffle
+from tqdm import tqdm
+import scipy
+from scipy import stats
+from mne.stats import ttest_1samp_no_p
+from mne.stats import (spatio_temporal_cluster_1samp_test,
+                       permutation_cluster_1samp_test)
+
+chance = .5
+alpha = 0.05
 
 
 def recode_label(event, extra_labels=None, sep='/'):
@@ -49,7 +59,7 @@ def len_match_arrays(X, y, sanity_check=False):
 
     x1 = X[np.where(y == 0)[0], :, :]
     x2 = X[np.where(y == 1)[0], :, :]
-    print(x1.shape, x2.shape)
+    print('before: ', x1.shape, x2.shape)
     if sanity_check:
         x1[:, :, 200:] = 1000000.0
     else:
@@ -59,7 +69,7 @@ def len_match_arrays(X, y, sanity_check=False):
         elif x2.shape[0] > x1.shape[0]:
             idxs = np.random.choice(x2.shape[0], size=x1.shape[0], replace=False)
             x2 = x2[idxs, :, :]
-    print(x1.shape, x2.shape)
+    print('after: ', x1.shape, x2.shape)
     assert x1.shape[0] == x2.shape[0]
 
     X = np.concatenate([x1, x2], axis=0)
@@ -68,7 +78,7 @@ def len_match_arrays(X, y, sanity_check=False):
     return X, y
 
 
-def plot_svm_scores(times, scores, scoring="roc_auc", title=''):
+def plot_svm_scores(times, scores, scoring="roc_auc", title='', p_values=None):
     """
     Make a basic line plot of SVM accuracy
 
@@ -112,6 +122,9 @@ def temporal_decoding(times, X, y, filename, plotting=False, scoring="roc_auc", 
     @param jobs: number of processor cores to use (-1 uses maximum). Smaller number uses less RAM but takes longer.
     @return scores: array of SVM accuracy scores
     """
+    # bins = 10
+    # X = X[:, :, :480]
+    # X = X.reshape((X.shape[0], X.shape[1], bins, round(X.shape[2] / bins)))
 
     # Make logistic regression pipeline
     # clf = make_pipeline(StandardScaler(), LogisticRegression(solver="liblinear"))
@@ -122,7 +135,9 @@ def temporal_decoding(times, X, y, filename, plotting=False, scoring="roc_auc", 
     # Mean scores across cross-validation splits
     scores = np.mean(scores, axis=0)
 
-    plot_svm_scores(times, scores, scoring, str(filename.stem))
+    pvalues = significance_test(scores, model=time_decode, X_test=X, y_test=y, n_permutations=1000)
+
+    plot_svm_scores(times, scores, scoring, Path(filename).stem, pvalues)
     plt.savefig(filename, dpi=150)
     if plotting:
         plt.show(block=True)
@@ -130,48 +145,144 @@ def temporal_decoding(times, X, y, filename, plotting=False, scoring="roc_auc", 
     return scores
 
 
-def temporal_generalization(epochs, X, y, filename='temp_gen_plot.png', plotting=False, scoring="roc_auc"):
+def significance_test(scores, model, X_test, y_test, n_permutations=1000):
+    """Get p values for individual data by permuting y and then scoring X 1000 times"""
+    permutation_scores = np.zeros((n_permutations, X_test.shape[-1]))
+    model.fit(X_test, y_test)
+
+    for i in tqdm(range(n_permutations)):
+        shuffle(y_test)
+        permutation_score = model.score(X_test, y_test)
+        permutation_scores[i, :] = permutation_score
+
+    pvalues = []
+    for sample_n in range(X_test.shape[-1]):
+        pvalue = (np.sum(permutation_scores[:, sample_n] >= scores[sample_n]) + 1.0) / (n_permutations + 1)
+        pvalues.append(pvalue)
+    return pvalues
+
+
+# def get_score(permutation_score, X_test, y_test, model):
+#     shuffle(y_test)
+#     permutation_score.append(model.score(X_test, y_test))
+#     return permutation_score
+#
+# def significance_test_mp(scores, model, X_test, y_test, n_permutations=1000):
+#     from multiprocessing import Pool
+#     from functools import partial
+#     model.fit(X_test, y_test)
+#
+#     permutation_scores = [[] for _ in range(n_permutations)]
+#
+#     processes = 4
+#     with Pool(processes) as pool:
+#         get_score_partial = partial(get_score, X_test=X_test, y_test=y_test, model=model)
+#         permutation_scores = pool.map(get_score_partial, permutation_scores)
+#         # permutation_scores = pool.map(lambda item: your_func(item, X_test, y_test, model), permutation_scores)
+#
+#     permutation_scores = np.vstack(permutation_scores)
+#
+#     pvalues = []
+#     for sample_n in range(X_test.shape[-1]):
+#         pvalue = (np.sum(permutation_scores[:, sample_n] >= scores[sample_n]) + 1.0) / (n_permutations + 1)
+#         pvalues.append((pvalue))
+#     return pvalues
+
+
+def movingaverage(y, window_length):
     """
-    Temporal generalization is an extension of the decoding over time approach. It consists in evaluating whether the
-    model estimated at a particular time instant accurately predicts any other time instant. It is analogous to
-    transferring a trained model to a distinct learning problem, where the problems correspond to decoding the
-    patterns of brain activity recorded at distinct time instants.
-
-    The object to for Temporal generalization is mne.decoding.GeneralizingEstimator. It expects as input X and y
-    (similarly to SlidingEstimator) but generates predictions from each model for all time instants. The class
-    GeneralizingEstimator is generic and will treat the last dimension as the one to be used for generalization
-    testing. For convenience, here, we refer to it as different tasks. If corresponds to epochs data then the last
-    dimension is time.
-
-    @param epochs: mne epochs object - used for x axis of plot
-    @param X: 3d numpy array of n_epochs, n_meg_channels, n_times
-    @param y: array of epoch events
-    @param filename: plot filename for saving
-    @param plotting: whether to plot or not
-    @param scoring: what sklearn scoring measure to use. See sklearn.metrics.get_scorer_names() for options
+    https://github.com/SridharJagannathan/decAlertnessDecisionmaking_JNeuroscience2021/blob/main/Scripts/notebooks/Figure6_temporaldecodingresponses.ipynb
     """
+    y_smooth = scipy.convolve(y, np.ones(window_length, dtype='float'), 'same') / scipy.convolve(np.ones(len(y)),
+                                                                                                 np.ones(window_length),
+                                                                                                 'same')
+    return y_smooth
 
-    clf = make_pipeline(StandardScaler(), SVC(kernel='rbf'))  # 'rbf'
-    # define the Temporal generalization object
-    time_gen = GeneralizingEstimator(clf, n_jobs=-1, scoring=scoring, verbose=True)
 
-    scores = cross_val_multiscore(time_gen, X, y, cv=5, n_jobs=-1)
+def temporal_decoding_with_smoothing(times, x_data, y, filename, plotting=False, scoring="roc_auc", jobs=-1):
+    """
+    https://github.com/SridharJagannathan/decAlertnessDecisionmaking_JNeuroscience2021/blob/main/Scripts/notebooks/Figure6_temporaldecodingresponses.ipynb
+    """
+    # make an estimator with scaling each channel by across its time pts and epochs..
+    # model parameters estimated with logistic regression(classification)..
+    # clf = make_pipeline(StandardScaler(), LinearModel(LogisticRegression(max_iter=1000)))
+    clf = make_pipeline(StandardScaler(), SVC(kernel='rbf'))
+    # Sliding estimator with classification made across each time pt by training with the same time pt..
+    time_decod = SlidingEstimator(clf, n_jobs=jobs, scoring='roc_auc')
 
-    # Mean scores across cross-validation splits
-    scores = np.mean(scores, axis=0)
+    # compute the cross validation score..
+    scores = cross_val_multiscore(time_decod, x_data, y, cv=5, n_jobs=jobs)
 
-    # Plot the diagonal (it's exactly the same as the time-by-time decoding above)
-    fig, ax = plt.subplots()
-    ax.plot(epochs.times, np.diag(scores), label="score")
-    ax.axhline(0.5, color="k", linestyle="--", label="chance")
-    ax.set_xlabel("time (s)")
-    ax.set_ylabel(scoring)
-    ax.legend()
-    ax.axvline(0.0, color="k", linestyle="-")
-    ax.set_title("Decoding EEG sensors over time")
+    # Mean scores across cross-validation splits..
+    score = np.mean(scores, axis=0)
+    # smooth datapoints to ensure no discontinuities..
+    score = movingaverage(score, 10)
 
+    # time_decod.fit(x_data, y)
+    # coef = get_coef(time_decod, 'patterns_', inverse_transform=True)
+
+    plot_svm_scores(times, score, scoring, Path(filename).stem)
     plt.savefig(filename, dpi=150)
-    plt.show(block=True)
+    if plotting:
+        plt.show(block=True)
+
+    # # store the evoked patterns that are more neurophysiologically interpretable..
+    # evoked = mne.EvokedArray(coef, X.info, tmin=X.times[0])
+    # fpath = outputfolder + "s_" + subj_id + "_" + cond_str + "_scores"
+    # with open(fpath, 'wb') as f:
+    #     pickle.dump([score, epoch_clean.times], f)
+    # fname = outputfolder + "s_" + subj_id + "_" + cond_str + "_evoked-ave.fif"
+    # evoked.save(fname)
+
+    return score
+
+
+def _stats(X, connectivity=None, n_jobs=-1):
+    """
+    Cluster statistics to control for multiple comparisons.
+
+    adapted from https://github.com/kingjr/decod_unseen_maintenance/blob/master/scripts/base.py
+    performs stats of the group level.
+    X is usually nsubj x ntpts -> composed of mean roc scores per subj per timepoint.
+    performs cluster stats on X to identify regions of tpts that have roc significantly differ from chance.
+
+
+    Parameters
+    ----------
+    X : array, shape (n_samples, n_space, n_times)
+        The data, chance is assumed to be 0.
+    connectivity : None | array, shape (n_space, n_times)
+        The connectivity matrix to apply cluster correction. If None uses
+        neighboring cells of X.
+    n_jobs : int
+        The number of parallel processors.
+    """
+    n_subjects = len(X)
+    X = np.array(X)
+    X = X[:, :, None] if X.ndim == 2 else X
+    # this functions gets the t-values and performs a cluster permutation test on them to determine p-values..
+    p_threshold = 0.05
+    t_threshold = -stats.distributions.t.ppf(p_threshold / 2., n_subjects - 1)
+    print('number of subjects:', n_subjects)
+    print('t-threshold is:', t_threshold)
+    print('p-threshold is:', p_threshold)
+    T_obs_, clusters, p_values, _ = spatio_temporal_cluster_1samp_test(
+        X, out_type='mask', stat_fun=_stat_fun, n_permutations=2 ** 12, seed=1234,
+        n_jobs=n_jobs, threshold=t_threshold)
+    p_values_ = np.ones_like(X[0]).T
+    # rearrange the p-value per cluster..
+    for cluster, pval in zip(clusters, p_values):
+        p_values_[cluster.T] = pval
+    return np.squeeze(p_values_).T
+
+
+def _stat_fun(x, sigma=0, method='relative'):
+    """
+    This secondary function reduces the time of computation of p-values and adjusts for small-variance values
+    """
+    t_values = ttest_1samp_no_p(x, sigma=sigma, method=method)
+    t_values[np.isnan(t_values)] = 0
+    return t_values
 
 
 def test_data_mvpa():
@@ -233,7 +344,7 @@ def test_data_mvpa():
 
     print(X.shape, y.shape)
 
-    temporal_decoding(epochs, X, y, filename=f'../analyses/temporal_decode_test_data.png',
+    temporal_decoding(epochs.times, X, y, filename=f'../analyses/temporal_decode_test_data.png',
                       plotting=indiv_plot, scoring=scoring)
 
 
@@ -301,6 +412,8 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
 
         y = epochs.events[:, 2]
         times = epochs.times
+        print(times)
+        quit()
         del epochs
 
         y[np.argwhere(np.isin(y, var1)).ravel()] = 0
@@ -317,10 +430,10 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             y_list.append(y)
         else:
             X, y = len_match_arrays(X, y)
-            scores = temporal_decoding(times, X, y,
-                                       filename=Path(output_dir, f'temp_decod_{Path(file).with_suffix("").stem}.png'),
-                                       plotting=indiv_plot, scoring=scoring, jobs=jobs)
-            # temporal_generalization(epochs, X, y)
+            scores = temporal_decoding_with_smoothing(times, X, y,
+                                                      filename=Path(output_dir,
+                                                                    f'temp_decod_{Path(file).with_suffix("").stem}.png'),
+                                                      plotting=indiv_plot, scoring=scoring, jobs=jobs)
             scores_list.append(scores)
 
     if not pickle_ouput:
@@ -330,12 +443,18 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             X, y = len_match_arrays(X, y)
             print(X.shape)
             print(np.array(np.unique(y, return_counts=True)))
-            scores = temporal_decoding(times, X, y,
-                              filename=Path(output_dir,f"group_{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png".replace('/','+')),
-                              plotting=indiv_plot, scoring=scoring, jobs=jobs)
+            scores = temporal_decoding_with_smoothing(times, X, y,
+                                       filename=Path(output_dir,
+                                                     f"group_{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png".replace(
+                                                         '/', '+')),
+                                       plotting=indiv_plot, scoring=scoring, jobs=jobs)
             all_data = pd.DataFrame([scores], columns=times)
             all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
         else:
+            X = np.vstack(scores_list)
+            scores_pvalues = _stats(X - chance, n_jobs=jobs)
+            print(scores_pvalues)
+
             m_scores = np.mean(scores_list, axis=0)
             plot_svm_scores(times, m_scores, scoring,
                             title=f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
@@ -346,6 +465,80 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             info = pd.DataFrame(extra_event_labels, columns=['ppt_num', 'sesh_num'])
             all_data = pd.concat([info, all_data], axis=1)
             all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
+
+            # Better plot with significance
+            funcreturn, _ = decodingplot(scores_cond=X, p_values_cond=scores_pvalues, times=times, rts=None,
+                                                   alpha=0.05, color='r', tmin=times[0], tmax=times[-1])
+            funcreturn.axes.set_ylim(0.45, 0.75)
+            funcreturn.axes.set_xlabel('Time (sec)')
+            funcreturn.axes.set_ylabel('AUC')
+            plt.savefig(Path(output_dir, "Mean_Sensor-space-decoding_plot2.png"), dpi=240)
+
+
+def decodingplot(scores_cond, p_values_cond, times, rts=None, alpha=0.05, color='r', tmin=-0.8, tmax=0.3):
+    scores = np.array(scores_cond)
+    sig = p_values_cond < alpha
+
+    scores_m = np.nanmean(scores, axis=0)
+    n = len(scores)
+    n -= sum(np.isnan(np.mean(scores, axis=1)))  # identify the nan subjs and remove them..
+    sem = np.nanstd(scores, axis=0) / np.sqrt(n)
+
+    fig, ax1 = plt.subplots(nrows=1, figsize=[20, 4])
+
+    ax1.plot(times, scores_m, 'k', linewidth=1, )
+    ax1.fill_between(times, scores_m - sem, scores_m + sem, color=color, alpha=0.3)
+
+    split_ydata = scores_m
+    split_ydata[~sig] = np.nan
+
+    # shade the significant regions..
+    ax1.plot(times, split_ydata, color='k', linewidth=3)
+    ax1.fill_between(times, y1=split_ydata, y2=0.5, alpha=0.7, facecolor=color)
+
+    ax1.spines['top'].set_visible(False)
+    ax1.spines['right'].set_visible(False)
+    ax1.spines['bottom'].set_visible(False)
+    ax1.spines['left'].set_visible(False)
+
+    ax1.grid(True)
+
+    ax1.axhline(y=0.5, linewidth=0.75, color='k', linestyle='--')
+    ax1.axvline(x=0, linewidth=0.75, color='k', linestyle='--')
+
+    timeintervals = np.arange(tmin, tmax, 0.1)
+    timeintervals = timeintervals.round(decimals=2)
+
+    ax1.set_xticks(timeintervals)
+    # ax1.axes.xaxis.set_ticklabels([])
+
+    for patch in ax1.artists:
+        r, g, b, a = patch.get_facecolor()
+        patch.set_facecolor((r, g, b, .3))
+
+    ax1.patch.set_edgecolor('black')
+
+    ax1.patch.set_linewidth(0)
+
+    for a in fig.axes:
+        a.tick_params(
+            axis='x',  # changes apply to the x-axis
+            which='both',  # both major and minor ticks are affected
+            bottom=True,
+            top=False,
+            labelbottom=True)  # labels along the bottom edge are on
+
+    class Scratch(object):
+        pass
+
+    returnval1 = Scratch()
+    returnval2 = Scratch()
+
+    returnval1.axes = ax1
+    returnval1.times = times[sig]
+    returnval1.scores = scores_m[sig]
+
+    return returnval1, returnval2
 
 
 def get_filepaths_from_file(analysis_file):
@@ -369,4 +562,14 @@ def get_filepaths_from_file(analysis_file):
     return files, extra
 
 
-
+if '__main__' in __name__:
+    files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list.csv')
+    MVPA_analysis(files=files,
+                  var1_events=['Obvious', 'Subtle'],
+                  var2_events=['Normal'],
+                  excluded_events=['Missed', 'Rate'], scoring="roc_auc",
+                  output_dir='../analyses/MVPA',
+                  indiv_plot=False,
+                  concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1,
+                  pickle_ouput=False)
+    # test_data_mvpa()

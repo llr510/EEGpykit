@@ -443,13 +443,13 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
 
             # Better plot with significance
-            funcreturn, _ = decodingplot(scores_cond=X, p_values_cond=scores_pvalues, times=times, rts=None,
+            funcreturn, _ = decodingplot(scores_cond=X, p_values_cond=scores_pvalues, times=times,
                                          alpha=0.05, color='r', tmin=times[0], tmax=times[-1])
             funcreturn.axes.set_title(f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
             funcreturn.axes.set_ylim(0.45, 0.75)
             funcreturn.axes.set_xlabel('Time (sec)')
             funcreturn.axes.set_ylabel('AUC')
-            plt.savefig(Path(output_dir, "Mean_Sensor-space-decoding_plot2.png"), dpi=240)
+            plt.savefig(Path(output_dir, "Group_Sensor-space-decoding_plot.png"), dpi=240)
 
             return X, y, scores_pvalues, times
 

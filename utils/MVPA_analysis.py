@@ -101,11 +101,15 @@ def plot_svm_scores(times, scores, scoring="roc_auc", title='', p_values=None):
 
 def movingaverage(y, window_length):
     """
-    https://github.com/SridharJagannathan/decAlertnessDecisionmaking_JNeuroscience2021/blob/main/Scripts/notebooks/Figure6_temporaldecodingresponses.ipynb
+    Used for smoothed the scores using a 3 point moving average to smooth out spurious fluctuations.
+    From: https://github.com/SridharJagannathan/decAlertnessDecisionmaking_JNeuroscience2021/blob/main/Scripts/notebooks/Figure6_temporaldecodingresponses.ipynb
+
+    @param y: np array of scores
+    @param window_length:
+    @return: array of smoothed scores
     """
-    y_smooth = scipy.convolve(y, np.ones(window_length, dtype='float'), 'same') / scipy.convolve(np.ones(len(y)),
-                                                                                                 np.ones(window_length),
-                                                                                                 'same')
+    y_smooth = scipy.convolve(y, np.ones(window_length, dtype='float'), 'same') / \
+               scipy.convolve(np.ones(len(y)), np.ones(window_length), 'same')
     return y_smooth
 
 
@@ -134,7 +138,7 @@ def temporal_decoding_with_smoothing(times, x_data, y, filename, plotting=False,
     @param jobs: number of processor cores to use (-1 uses maximum). Smaller number uses less RAM but takes longer.
     @return scores: array of SVM accuracy scores
 
-    https://github.com/SridharJagannathan/decAlertnessDecisionmaking_JNeuroscience2021/blob/main/Scripts/notebooks/Figure6_temporaldecodingresponses.ipynb
+    Original: https://github.com/SridharJagannathan/decAlertnessDecisionmaking_JNeuroscience2021/blob/main/Scripts/notebooks/Figure6_temporaldecodingresponses.ipynb
     """
     # make an estimator with scaling each channel by across its time pts and epochs..
     clf = make_pipeline(StandardScaler(), SVC(kernel='rbf'))
@@ -167,7 +171,7 @@ def temporal_decoding_with_smoothing(times, x_data, y, filename, plotting=False,
     return score
 
 
-def _stats(X, connectivity=None, n_jobs=-1):
+def cluster_stats_indiv(X, n_jobs=-1):
     """
     Cluster statistics to control for multiple comparisons. 1 sample t test
 
@@ -181,9 +185,6 @@ def _stats(X, connectivity=None, n_jobs=-1):
     ----------
     X : array, shape (n_samples, n_space, n_times)
         The data, chance is assumed to be 0.
-    connectivity : None | array, shape (n_space, n_times)
-        The connectivity matrix to apply cluster correction. If None uses
-        neighboring cells of X.
     n_jobs : int
         The number of parallel processors.
     """
@@ -215,9 +216,9 @@ def _stat_fun(x, sigma=0, method='relative'):
     return t_values
 
 
-def _stats_group(X_list, connectivity=None, n_jobs=-1):
+def cluster_stats_group(X_list, n_jobs=-1):
     """
-    Cluster statistics to control for multiple comparisons. 2 sample t test
+    Cluster statistics to control for multiple comparisons. Repeated measures 2 sample t test
 
     adapted from https://github.com/kingjr/decod_unseen_maintenance/blob/master/scripts/base.py
     performs stats of the group level.
@@ -229,9 +230,6 @@ def _stats_group(X_list, connectivity=None, n_jobs=-1):
     ----------
     X : list of array, shape (n_samples, n_space, n_times)
         The data, chance is assumed to be 0.
-    connectivity : None | array, shape (n_space, n_times)
-        The connectivity matrix to apply cluster correction. If None uses
-        neighboring cells of X.
     n_jobs : int
         The number of parallel processors.
     """
@@ -240,9 +238,9 @@ def _stats_group(X_list, connectivity=None, n_jobs=-1):
     n_subjects = len(X_list[0])
     X_list = [np.array(X) for X in X_list]
     X_list = [X[:, :, None] if X.ndim == 2 else X for X in X_list]
-    # this functions gets the t-values and performs a cluster permutation test on them to determine p-values..
+    # this functions gets the t-values and performs a cluster permutation test on them to determine p-values.
     p_threshold = 0.05
-    # Todo Check this is still the correct t threshold
+    # Repeated measures t-test so degrees of freedom is n-1
     t_threshold = -stats.distributions.t.ppf(p_threshold / 2., n_subjects - 1)
     print('number of subjects:', n_subjects)
     print('t-threshold is:', t_threshold)
@@ -251,7 +249,7 @@ def _stats_group(X_list, connectivity=None, n_jobs=-1):
         X_list, out_type='mask', stat_fun=_stat_fun_group, n_permutations=2 ** 12, seed=1234,
         n_jobs=n_jobs, threshold=t_threshold)
     p_values_ = np.ones_like(X_list[0][0]).T
-    # rearrange the p-value per cluster..
+    # rearrange the p-value per cluster.
     for cluster, pval in zip(clusters, p_values):
         p_values_[cluster.T] = pval
     return np.squeeze(p_values_).T
@@ -326,7 +324,7 @@ def test_data_mvpa():
     print(X.shape, y.shape)
 
     temporal_decoding_with_smoothing(epochs.times, X, y, filename=f'../analyses/temporal_decode_test_data.png',
-                      plotting=indiv_plot, scoring=scoring)
+                                     plotting=indiv_plot, scoring=scoring)
 
 
 def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="roc_auc", output_dir='',
@@ -431,7 +429,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
         else:
             X = np.vstack(scores_list)
-            scores_pvalues = _stats(X - chance, n_jobs=jobs)
+            scores_pvalues = cluster_stats_indiv(X - chance, n_jobs=jobs)
             print(scores_pvalues)
 
             # m_scores = np.mean(scores_list, axis=0)
@@ -456,10 +454,13 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             return X, y, scores_pvalues, times
 
 
-def MVPA_group_analysis(groups, var1_events, var2_events, excluded_events=[], scoring="roc_auc", output_dir='', jobs=-1):
+def MVPA_group_analysis(groups, var1_events, var2_events, excluded_events=[], scoring="roc_auc", output_dir='',
+                        jobs=-1):
     """
+    For doing invididual MVPA analyses and then the group permutation cluster test of those analyses
 
-    @param groups:
+    @param groups: a dict of group labels and epoch filepaths within those groups.
+                    e.g {'session1': files1, 'session2': files2}
     @param var1_events:
     @param var2_events:
     @param excluded_events:
@@ -479,18 +480,21 @@ def MVPA_group_analysis(groups, var1_events, var2_events, excluded_events=[], sc
                                                         indiv_plot=False,
                                                         concat_participants=False, jobs=jobs)
             X_list.append(X)
-
         with open(Path(output_dir, 'indiv.pickle'), 'wb') as f:
             pickle.dump([X_list, times], f)
     else:
         with open(Path(output_dir, 'indiv.pickle'), 'rb') as f:
             X_list, times = pickle.load(f)
 
-    group_pvalues = _stats_group(X_list, jobs)
+    group_MVPA_and_plot(X_list, list(groups.keys()), var1_events, var2_events, times, output_dir, jobs)
+
+
+def group_MVPA_and_plot(X_list, labels, var1_events, var2_events, times, output_dir='', jobs=-1):
+    group_pvalues = cluster_stats_group(X_list, jobs)
     print(group_pvalues)
     # Better plot with significance
     funcreturn, _ = decodingplot_group(scores_cond_group=X_list, p_values_cond=group_pvalues, times=times,
-                                       labels=list(groups.keys()), alpha=0.05, tmin=times[0], tmax=times[-1])
+                                       labels=labels, alpha=0.05, tmin=times[0], tmax=times[-1])
     funcreturn.axes.set_title(f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
     funcreturn.axes.set_ylim(0.45, 0.75)
     funcreturn.axes.set_xlabel('Time (sec)')
@@ -498,7 +502,7 @@ def MVPA_group_analysis(groups, var1_events, var2_events, excluded_events=[], sc
     plt.savefig(Path(output_dir, "Group_Sensor-space-decoding_plot.png"), dpi=240)
 
 
-def decodingplot(scores_cond, p_values_cond, times, rts=None, alpha=0.05, color='r', tmin=-0.8, tmax=0.3):
+def decodingplot(scores_cond, p_values_cond, times, alpha=0.05, color='r', tmin=-0.8, tmax=0.3):
     scores = np.array(scores_cond)
     sig = p_values_cond < alpha
 
@@ -579,7 +583,7 @@ def decodingplot_group(scores_cond_group, p_values_cond, times, labels, alpha=0.
 
         ax1.plot(times, scores_m, 'k', linewidth=1)
         ax1.fill_between(times, scores_m - sem, scores_m + sem, color=colors[group_n], alpha=0.3,
-                              label=labels[group_n])
+                         label=labels[group_n])
 
         split_ydata = scores_m
         split_ydata[~sig] = np.nan
@@ -588,7 +592,8 @@ def decodingplot_group(scores_cond_group, p_values_cond, times, labels, alpha=0.
         ax1.plot(times, split_ydata, color='k', linewidth=3)
         split_ydata_group.append(split_ydata)
 
-    ax1.fill_between(times, y1=split_ydata_group[0], y2=split_ydata_group[1], alpha=0.7, facecolor='g', label=f'p<={alpha}')
+    ax1.fill_between(times, y1=split_ydata_group[0], y2=split_ydata_group[1], alpha=0.7, facecolor='g',
+                     label=f'p<={alpha}')
     ax1.spines['top'].set_visible(False)
     ax1.spines['right'].set_visible(False)
     ax1.spines['bottom'].set_visible(False)
@@ -603,7 +608,6 @@ def decodingplot_group(scores_cond_group, p_values_cond, times, labels, alpha=0.
     timeintervals = timeintervals.round(decimals=2)
 
     ax1.set_xticks(timeintervals)
-    # ax1.axes.xaxis.set_ticklabels([])
 
     for patch in ax1.artists:
         r, g, b, a = patch.get_facecolor()

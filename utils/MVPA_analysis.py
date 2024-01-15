@@ -469,6 +469,9 @@ def MVPA_group_analysis(groups, var1_events, var2_events, excluded_events=[], sc
     @param jobs:
     @return:
     """
+    if not Path(output_dir).exists():
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+
     if not Path(output_dir, 'indiv.pickle').exists():
         X_list = []
         for label, group in groups.items():
@@ -499,6 +502,10 @@ def group_MVPA_and_plot(X_list, labels, var1_events, var2_events, times, output_
     funcreturn.axes.set_ylim(0.45, 0.75)
     funcreturn.axes.set_xlabel('Time (sec)')
     funcreturn.axes.set_ylabel('AUC')
+
+    if not Path(output_dir).exists():
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+
     plt.savefig(Path(output_dir, "Group_Sensor-space-decoding_plot.png"), dpi=240)
 
 

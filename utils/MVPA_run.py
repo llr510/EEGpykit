@@ -11,16 +11,16 @@ def run_AB_analysis():
     Compare T2 in Block 1 (S-S) to T2 in Block 4 (NS-NS) across lags
 
     """
-    files, extra = get_filepaths_from_file(
-        f'../analyses/MVPA-AB/MVPA_analysis_list_all.csv')
-    MVPA_analysis(files,
-                  var1_events=[f'dot'],
-                  var2_events=[f'scene'],
-                  scoring="roc_auc",
-                  output_dir=f'../analyses/MVPA-AB/dot_vs_scene/',
-                  indiv_plot=False,
-                  concat_participants=True,
-                  jobs=-1)
+    # files, extra = get_filepaths_from_file(
+    #     f'../analyses/MVPA-AB/MVPA_analysis_list_all.csv')
+    # MVPA_analysis(files,
+    #               var1_events=[f'dot'],
+    #               var2_events=[f'scene'],
+    #               scoring="roc_auc",
+    #               output_dir=f'../analyses/MVPA-AB/dot_vs_scene/',
+    #               indiv_plot=False,
+    #               concat_participants=True,
+    #               jobs=-1)
 
     for stim in ['scene', 'dot']:
         files, extra = get_filepaths_from_file(
@@ -350,6 +350,6 @@ def run_pickle_rads():
 
 
 if '__main__' in __name__:
-    run_training_analysis(output_dir='../analyses/MVPA-viking/')
-    run_rads_analysis(output_dir='../analyses/MVPA-viking/')
+    # run_training_analysis(output_dir='../analyses/MVPA-viking/')
+    # run_rads_analysis(output_dir='../analyses/MVPA-viking/')
     run_AB_analysis()

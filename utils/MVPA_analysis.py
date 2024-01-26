@@ -26,13 +26,7 @@ from random import shuffle
 from tqdm import tqdm
 import scipy
 from scipy import stats
-from mne.stats import ttest_1samp_no_p, ttest_ind_no_p
-from mne.stats import (spatio_temporal_cluster_1samp_test,
-                       spatio_temporal_cluster_test,
-                       permutation_cluster_1samp_test)
-
-chance = .5
-alpha = 0.05
+from mne.stats import ttest_1samp_no_p, ttest_ind_no_p, spatio_temporal_cluster_1samp_test, spatio_temporal_cluster_test
 
 
 def recode_label(event, extra_labels=None, sep='/'):
@@ -51,7 +45,7 @@ def recode_label(event, extra_labels=None, sep='/'):
 
 def len_match_arrays(X, y, sanity_check=False):
     """
-    In theory a glm or svm can learn to distinguish groups by a case imbalance.
+    A glm or svm can potentially learn to distinguish groups by a case imbalance.
     This function randomly drops epochs from the longer of two cases so that they are the same length.
 
     @param sanity_check: add a large number to the values of one condition
@@ -59,7 +53,6 @@ def len_match_arrays(X, y, sanity_check=False):
     @param y: 1d epochs binary event type array.
     @return: len matched X,y.
     """
-
     x1 = X[np.where(y == 0)[0], :, :]
     x2 = X[np.where(y == 1)[0], :, :]
     print('before: ', x1.shape, x2.shape)
@@ -172,9 +165,19 @@ def temporal_decoding_with_smoothing(times, x_data, y, filename, plotting=False,
     return score
 
 
-def cluster_stats_indiv(X, n_jobs=-1):
+def _stat_fun_1samp(x, sigma=0, method='relative'):
+    """
+    This secondary function reduces the time of computation of p-values and adjusts for small-variance values
+    """
+    t_values = ttest_1samp_no_p(x, sigma=sigma, method=method)
+    t_values[np.isnan(t_values)] = 0
+    return t_values
+
+
+def cluster_stats_1samp(X, n_jobs=-1):
     """
     Cluster statistics to control for multiple comparisons. 1 sample t test
+    Takes multiple individuals SVM outputs and determines if the mean is above chance
 
     adapted from https://github.com/kingjr/decod_unseen_maintenance/blob/master/scripts/base.py
     performs stats of the group level.
@@ -195,11 +198,11 @@ def cluster_stats_indiv(X, n_jobs=-1):
     # this functions gets the t-values and performs a cluster permutation test on them to determine p-values..
     p_threshold = 0.05
     t_threshold = -stats.distributions.t.ppf(p_threshold / 2., n_subjects - 1)
-    print('number of subjects/trials:', n_subjects)
+    print('number of subjects:', n_subjects)
     print('t-threshold is:', t_threshold)
     print('p-threshold is:', p_threshold)
     T_obs_, clusters, p_values, _ = spatio_temporal_cluster_1samp_test(
-        X, out_type='mask', stat_fun=_stat_fun, n_permutations=2 ** 12, seed=1234,
+        X, out_type='mask', stat_fun=_stat_fun_1samp, n_permutations=2 ** 12, seed=1234,
         n_jobs=n_jobs, threshold=t_threshold)
     p_values_ = np.ones_like(X[0]).T
     # rearrange the p-value per cluster..
@@ -208,16 +211,16 @@ def cluster_stats_indiv(X, n_jobs=-1):
     return np.squeeze(p_values_).T
 
 
-def _stat_fun(x, sigma=0, method='relative'):
+def _stat_fun_2samp(a, b, sigma=0):
     """
     This secondary function reduces the time of computation of p-values and adjusts for small-variance values
     """
-    t_values = ttest_1samp_no_p(x, sigma=sigma, method=method)
+    t_values = ttest_ind_no_p(a, b, sigma=sigma, equal_var=True)
     t_values[np.isnan(t_values)] = 0
     return t_values
 
 
-def cluster_stats_group(X_list, n_jobs=-1):
+def cluster_stats_2samp(X_list, n_jobs=-1):
     """
     Cluster statistics to control for multiple comparisons. Repeated measures 2 sample t test
 
@@ -243,26 +246,17 @@ def cluster_stats_group(X_list, n_jobs=-1):
     p_threshold = 0.05
     # Repeated measures t-test so degrees of freedom is n-1
     t_threshold = -stats.distributions.t.ppf(p_threshold / 2., n_subjects - 1)
-    print('number of subjects:', n_subjects)
+    print('number of subjects/trials:', n_subjects)
     print('t-threshold is:', t_threshold)
     print('p-threshold is:', p_threshold)
     T_obs_, clusters, p_values, _ = spatio_temporal_cluster_test(
-        X_list, out_type='mask', stat_fun=_stat_fun_group, n_permutations=2 ** 12, seed=1234,
+        X_list, out_type='mask', stat_fun=_stat_fun_2samp, n_permutations=2 ** 12, seed=1234,
         n_jobs=n_jobs, threshold=t_threshold)
     p_values_ = np.ones_like(X_list[0][0]).T
     # rearrange the p-value per cluster.
     for cluster, pval in zip(clusters, p_values):
         p_values_[cluster.T] = pval
     return np.squeeze(p_values_).T
-
-
-def _stat_fun_group(a, b, sigma=0):
-    """
-    This secondary function reduces the time of computation of p-values and adjusts for small-variance values
-    """
-    t_values = ttest_ind_no_p(a, b, sigma=sigma, equal_var=True)
-    t_values[np.isnan(t_values)] = 0
-    return t_values
 
 
 def test_data_mvpa():
@@ -320,8 +314,12 @@ def test_data_mvpa():
     except KeyError:
         pass
 
-    activity_map_plots(epochs, group1=var1_events, group2=var2_events)
-
+    plots = activity_map_plots(epochs, group1=var1_events, group2=var2_events, plot_significance=False)
+    for key, plot in plots.items():
+        if 'anim' in key:
+            plot.save(f'../analyses/mne_test_data_{key}')
+        else:
+            plot.savefig(f'../analyses/mne_test_data_{key}', dpi=240)
     quit()
 
     X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
@@ -398,8 +396,15 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
 
         y = epochs.events[:, 2]
         times = epochs.times
-        del epochs
 
+        plots = activity_map_plots(epochs, group1=var1_events, group2=var2_events, plot_significance=True)
+        for key, plot in plots.items():
+            if 'anim' in key:
+                plot.save(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'))
+            else:
+                plot.savefig(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'), dpi=240)
+
+        del epochs
         y[np.argwhere(np.isin(y, var1)).ravel()] = 0
         y[np.argwhere(np.isin(y, var2)).ravel()] = 1
 
@@ -436,13 +441,9 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
         else:
             X = np.vstack(scores_list)
-            scores_pvalues = cluster_stats_indiv(X - chance, n_jobs=jobs)
-            print(scores_pvalues)
 
-            # m_scores = np.mean(scores_list, axis=0)
-            # plot_svm_scores(times, m_scores, scoring,
-            #                 title=f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
-            # plt.savefig(Path(output_dir, "Mean_Sensor-space-decoding_plot.png"), dpi=150)
+            chance = .5
+            scores_pvalues = cluster_stats_1samp(X - chance, n_jobs=jobs)
 
             all_data = pd.DataFrame(scores_list, columns=times)
             info = pd.DataFrame(extra_event_labels, columns=['ppt_num', 'sesh_num'])
@@ -500,7 +501,7 @@ def MVPA_group_analysis(groups, var1_events, var2_events, excluded_events=[], sc
 
 
 def group_MVPA_and_plot(X_list, labels, var1_events, var2_events, times, output_dir='', jobs=-1):
-    group_pvalues = cluster_stats_group(X_list, jobs)
+    group_pvalues = cluster_stats_2samp(X_list, jobs)
     print(group_pvalues)
     # Better plot with significance
     funcreturn, _ = decodingplot_group(scores_cond_group=X_list, p_values_cond=group_pvalues, times=times,
@@ -549,7 +550,7 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
 
     if plot_significance:
         # Filter data by significance
-        indiv_pvalues = cluster_stats_group([epochs['auditory'].get_data(), epochs['visual'].get_data()], n_jobs=-1)
+        indiv_pvalues = cluster_stats_2samp([epochs[group1].get_data(), epochs[group2].get_data()], n_jobs=-1)
         # Define a threshold and create the mask
         mask = indiv_pvalues < alpha
         mask_params = dict(markersize=10, markerfacecolor="y")
@@ -561,24 +562,25 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
 
     heat, ax = plt.subplots()
     plot = ax.pcolormesh(times, epochs.ch_names, X_diff, cmap='twilight', norm=TwoSlopeNorm(0))
+
     heat.colorbar(plot)
     ax.set_ylabel('channels')
     ax.set_xlabel('times')
-
-    # plt.show(block=True)
-    # Select times and plot
+    ax.set_title(f"{'-'.join(group1)}_vs_{'-'.join(group2)} - Heatmap")
 
     if plot_significance:
-        topo = evoked_sig.plot_topomap(times="auto", ch_type="eeg", mask=mask, mask_params=mask_params, show=True)
+        topo = evoked_diff.plot_topomap(times="auto", ch_type="eeg", mask=mask, mask_params=mask_params, show=True)
         fig, anim = evoked_sig.animate_topomap(times=epochs.times, ch_type="eeg", frame_rate=12, show=False, blit=False,
-                                               time_unit='s', butterfly=False)  # , mask=mask, mask_params=mask_params)
+                                               time_unit='s')  # , mask=mask, mask_params=mask_params)
     else:
         topo = evoked_diff.plot_topomap(times="auto", ch_type="eeg", show=True)
+
         fig, anim = evoked_diff.animate_topomap(times=epochs.times, ch_type="eeg", frame_rate=12, show=False,
                                                 blit=False,
-                                                time_unit='s', butterfly=False)  # , mask=mask, mask_params=mask_params)
+                                                time_unit='s')  # , mask=mask, mask_params=mask_params)
 
-    return heat, topo, anim
+    topo.suptitle(f"{'-'.join(group1)}_vs_{'-'.join(group2)} - Topomap")
+    return {'heatmap.png': heat, 'topomap.png': topo, 'animated_topomap.mp4': anim}
 
 
 def decodingplot(scores_cond, p_values_cond, times, alpha=0.05, color='r', tmin=-0.8, tmax=0.3):

@@ -154,10 +154,9 @@ def temporal_decoding_with_smoothing(times, x_data, y, filename, plotting=False,
 
     # time_decod.fit(x_data, y)
     # coef = get_coef(time_decod, 'patterns_', inverse_transform=True)
-
-    plot_svm_scores(times, score, scoring, Path(filename).stem)
-    plt.savefig(filename, dpi=150)
     if plotting:
+        plot_svm_scores(times, score, scoring, Path(filename).stem)
+        plt.savefig(filename, dpi=150)
         plt.show(block=True)
 
     # # store the evoked patterns that are more neurophysiologically interpretable..
@@ -177,13 +176,13 @@ def cluster_stats_indiv(X, n_jobs=-1):
 
     adapted from https://github.com/kingjr/decod_unseen_maintenance/blob/master/scripts/base.py
     performs stats of the group level.
-    X is usually nsubj x ntpts -> composed of mean roc scores per subj per timepoint.
+    X is usually nsubj x ntpts -> composed of mean roc scores per subj per time point.
     performs cluster stats on X to identify regions of tpts that have roc significantly differ from chance.
 
 
     Parameters
     ----------
-    X : array, shape (n_samples, n_space, n_times)
+    X : array, shape (n_samples, n_space, n_times) or (n_subjects, n_times)
         The data, chance is assumed to be 0.
     n_jobs : int
         The number of parallel processors.
@@ -268,33 +267,39 @@ def test_data_mvpa():
     """
     Loads some MNE test data, preprocesses it and runs an MVPA analysis on it
     """
-    sample_data_folder = mne.datasets.sample.data_path()
-    sample_data_raw_file = (
-            sample_data_folder / "MEG" / "sample" / "sample_audvis_filt-0-40_raw.fif"
-    )
-    raw = mne.io.read_raw_fif(sample_data_raw_file)
-    from preprocessor import preprocess_with_faster
-    event_dict = {
-        "auditory/left": 1,
-        "auditory/right": 2,
-        "visual/left": 3,
-        "visual/right": 4,
-        "smiley": 5,
-        "buttonpress": 32,
-    }
-    events = mne.find_events(raw, stim_channel="STI 014")
-    picks = mne.pick_types(raw.info, meg=False, eeg=True, eog=True)
+    filename = Path('mne_test_data-epo.fif')
+    if filename.exists():
+        epochs = mne.read_epochs(filename)
 
-    epochs, evoked_before, evoked_after, logdict, report = preprocess_with_faster(raw, events, event_ids=event_dict,
-                                                                                  picks=picks, tmin=-0.2, bmax=0,
-                                                                                  tmax=0.5, plotting=False,
-                                                                                  report=None)
+    else:
+        sample_data_folder = mne.datasets.sample.data_path()
+        sample_data_raw_file = (
+                sample_data_folder / "MEG" / "sample" / "sample_audvis_filt-0-40_raw.fif"
+        )
+        raw = mne.io.read_raw_fif(sample_data_raw_file)
+        from preprocessor import preprocess_with_faster
+        event_dict = {
+            "auditory/left": 1,
+            "auditory/right": 2,
+            "visual/left": 3,
+            "visual/right": 4,
+            "smiley": 5,
+            "buttonpress": 32,
+        }
+        events = mne.find_events(raw, stim_channel="STI 014")
+        picks = mne.pick_types(raw.info, meg=False, eeg=True, eog=True)
+
+        epochs, evoked_before, evoked_after, logdict, report = preprocess_with_faster(raw, events, event_ids=event_dict,
+                                                                                      picks=picks, tmin=-0.2, bmax=0,
+                                                                                      tmax=0.5, plotting=False,
+                                                                                      report=None)
+        epochs.save(filename)
 
     scoring = "roc_auc"
     var1_events = ['auditory']
     var2_events = ['visual']
     excluded_events = ['buttonpress']
-    indiv_plot = True
+    indiv_plot = False
 
     epochs.pick_types(eeg=True, exclude="bads")
 
@@ -315,16 +320,23 @@ def test_data_mvpa():
 
     X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
     y = epochs.events[:, 2]
+    times = epochs.times
 
     y[np.argwhere(np.isin(y, var1)).ravel()] = 0
     y[np.argwhere(np.isin(y, var2)).ravel()] = 1
 
     X, y = len_match_arrays(X, y)
 
+    x1 = X[np.where(y == 0)[0], :, :]
+    x2 = X[np.where(y == 1)[0], :, :]
+    X_list = [x1, x2]
+    labels = ['auditory', 'visual']
     print(X.shape, y.shape)
 
-    temporal_decoding_with_smoothing(epochs.times, X, y, filename=f'../analyses/temporal_decode_test_data.png',
-                                     plotting=indiv_plot, scoring=scoring)
+    # temporal_decoding_with_smoothing(epochs.times, X, y, filename=f'../analyses/temporal_decode_test_data.png',
+    #                                  plotting=indiv_plot, scoring=scoring)
+    indiv_cluster_stats_plot(X_list, labels, var1_events, var2_events, times, output_dir='', jobs=-1)
+    # group_MVPA_and_plot(X_list, labels, var1_events, var2_events, times, output_dir='', jobs=-1)
 
 
 def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="roc_auc", output_dir='',
@@ -509,6 +521,26 @@ def group_MVPA_and_plot(X_list, labels, var1_events, var2_events, times, output_
     plt.savefig(Path(output_dir, "Group_Sensor-space-decoding_plot.png"), dpi=240)
 
 
+def indiv_cluster_stats_plot(X_list, labels, var1_events, var2_events, times, output_dir='', jobs=-1):
+
+    # average over epochs
+    X_channels = [x.mean(axis=0) for x in X_list]
+    X = X_channels[0] - X_channels[1]
+
+    # # get clusters for each channel
+    indiv_pvalues = cluster_stats_group(X_list, jobs)
+    X[np.where(indiv_pvalues > 0.05)] = 0
+
+    fig, ax = plt.subplots()
+    print(times)
+    ax.imshow(X, cmap='twilight')
+
+    # ax.set_xscale(times)
+    ax.set_ylabel('channels')
+    ax.set_xlabel('times')
+    plt.show(block=True)
+
+
 def decodingplot(scores_cond, p_values_cond, times, alpha=0.05, color='r', tmin=-0.8, tmax=0.3):
     scores = np.array(scores_cond)
     sig = p_values_cond < alpha
@@ -582,11 +614,17 @@ def decodingplot_group(scores_cond_group, p_values_cond, times, labels, alpha=0.
     for group_n, scores_cond in enumerate(scores_cond_group):
         scores = np.array(scores_cond)
         sig = p_values_cond < alpha
-
-        scores_m = np.nanmean(scores, axis=0)
-        n = len(scores)
-        n -= sum(np.isnan(np.mean(scores, axis=1)))  # identify the nan subjs and remove them.
-        sem = np.nanstd(scores, axis=0) / np.sqrt(n)
+        print(scores.shape)
+        if len(scores.shape) == 1:
+            scores_m = np.nanmean(scores, axis=0)
+            n = len(scores)
+            n -= sum(np.isnan(np.mean(scores, axis=1)))  # identify the nan subjs and remove them.
+            sem = np.nanstd(scores, axis=0) / np.sqrt(n)
+        else:
+            # n_epochs × n_channels × n_times
+            scores_m = np.nanmean(scores, axis=(0, 1))
+            n = scores.shape[0]
+            sem = np.nanstd(scores, axis=(0, 1)) / np.sqrt(n)
 
         ax1.plot(times, scores_m, 'k', linewidth=1)
         ax1.fill_between(times, scores_m - sem, scores_m + sem, color=colors[group_n], alpha=0.3,
@@ -677,13 +715,13 @@ if '__main__' in __name__:
     #               concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1,
     #               pickle_ouput=False)
 
-    files1, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh1.csv')
-    files2, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh2.csv')
-    MVPA_group_analysis(groups={'session1': files1, 'session2': files2},
-                        var1_events=['Obvious', 'Subtle'],
-                        var2_events=['Normal', 'Global'],
-                        excluded_events=['Missed', 'Rate'],
-                        scoring="roc_auc",
-                        output_dir='../analyses/MVPA_group',
-                        indiv_plot=False, jobs=-1)
-    # test_data_mvpa()
+    # files1, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh1.csv')
+    # files2, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh2.csv')
+    # MVPA_group_analysis(groups={'session1': files1, 'session2': files2},
+    #                     var1_events=['Obvious', 'Subtle'],
+    #                     var2_events=['Normal', 'Global'],
+    #                     excluded_events=['Missed', 'Rate'],
+    #                     scoring="roc_auc",
+    #                     output_dir='../analyses/MVPA_group',
+    #                     indiv_plot=False, jobs=-1)
+    test_data_mvpa()

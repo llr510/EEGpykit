@@ -2,6 +2,8 @@ import pickle
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
+import sklearn.preprocessing
+from matplotlib.colors import TwoSlopeNorm
 import pandas as pd
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -233,7 +235,7 @@ def cluster_stats_group(X_list, n_jobs=-1):
         The number of parallel processors.
     """
 
-    assert len(X_list[0]) == len(X_list[1])
+    # assert len(X_list[0]) == len(X_list[1])
     n_subjects = len(X_list[0])
     X_list = [np.array(X) for X in X_list]
     X_list = [X[:, :, None] if X.ndim == 2 else X for X in X_list]
@@ -318,6 +320,9 @@ def test_data_mvpa():
     except KeyError:
         pass
 
+    animated_topo_map(epochs)
+
+    quit()
     X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
     y = epochs.events[:, 2]
     times = epochs.times
@@ -326,7 +331,6 @@ def test_data_mvpa():
     y[np.argwhere(np.isin(y, var2)).ravel()] = 1
 
     X, y = len_match_arrays(X, y)
-
     x1 = X[np.where(y == 0)[0], :, :]
     x2 = X[np.where(y == 1)[0], :, :]
     X_list = [x1, x2]
@@ -335,7 +339,7 @@ def test_data_mvpa():
 
     # temporal_decoding_with_smoothing(epochs.times, X, y, filename=f'../analyses/temporal_decode_test_data.png',
     #                                  plotting=indiv_plot, scoring=scoring)
-    indiv_cluster_stats_plot(X_list, labels, var1_events, var2_events, times, output_dir='', jobs=-1)
+    indiv_cluster_stats_plot(X_list, labels, var1_events, var2_events, times, epochs.ch_names, output_dir='', jobs=-1, )
     # group_MVPA_and_plot(X_list, labels, var1_events, var2_events, times, output_dir='', jobs=-1)
 
 
@@ -521,24 +525,73 @@ def group_MVPA_and_plot(X_list, labels, var1_events, var2_events, times, output_
     plt.savefig(Path(output_dir, "Group_Sensor-space-decoding_plot.png"), dpi=240)
 
 
-def indiv_cluster_stats_plot(X_list, labels, var1_events, var2_events, times, output_dir='', jobs=-1):
+def scaler(X, arr_min, arr_max, new_min, new_max):
+    X_std = (X - arr_min) / (arr_max - arr_min)
+    X_scaled = X_std * (new_max - new_min) + new_min
+    return X_scaled
 
-    # average over epochs
+
+def indiv_cluster_stats_plot(X_list, labels, var1_events, var2_events, times, ch_names, output_dir='', jobs=-1):
+    # average over epochs - now channels x times
     X_channels = [x.mean(axis=0) for x in X_list]
-    X = X_channels[0] - X_channels[1]
 
-    # # get clusters for each channel
-    indiv_pvalues = cluster_stats_group(X_list, jobs)
-    X[np.where(indiv_pvalues > 0.05)] = 0
+    # X_min = min([x.min() for x in X_channels])
+    # X_max = max([x.max() for x in X_channels])
+    # X_abs = [scaler(x, X_min, X_max, 0, 1) for x in X_channels]
+    # X_diff = X_abs[0] - X_abs[1]
+
+    # subtract data from each condition
+    X_diff = X_channels[0] - X_channels[1]
+    significance_plot = False
+    if significance_plot:
+        # # get clusters for each channel
+        indiv_pvalues = cluster_stats_group(X_list, jobs)
+        X_diff[np.where(indiv_pvalues > 0.05)] = 0
 
     fig, ax = plt.subplots()
     print(times)
-    ax.imshow(X, cmap='twilight')
+    plot = ax.pcolormesh(times, ch_names, X_diff, cmap='twilight', norm=TwoSlopeNorm(0))
+    fig.colorbar(plot)
 
-    # ax.set_xscale(times)
     ax.set_ylabel('channels')
     ax.set_xlabel('times')
     plt.show(block=True)
+
+
+def average_epochs(X):
+    return X.mean(axis=0)
+
+
+def animated_topo_map(epochs):
+    times = epochs.times
+    evoked_auditory = epochs['auditory'].average(method=average_epochs)
+    evoked_visual = epochs['visual'].average(method=average_epochs)
+    evoked_diff = mne.combine_evoked([evoked_auditory, evoked_visual], weights=[1, -1])
+    X_diff = evoked_diff.get_data()
+
+    sig = True
+
+    if sig:
+        # Filter data by significance
+        indiv_pvalues = cluster_stats_group([epochs['auditory'].get_data(), epochs['visual'].get_data()], n_jobs=-1)
+        # Define a threshold and create the mask
+        mask = indiv_pvalues < 0.05
+        X_diff[np.where(indiv_pvalues > 0.05)] = 0
+        evoked_diff.data = X_diff
+
+    fig, ax = plt.subplots()
+    plot = ax.pcolormesh(times, epochs.ch_names, X_diff, cmap='twilight', norm=TwoSlopeNorm(0))
+    fig.colorbar(plot)
+
+    ax.set_ylabel('channels')
+    ax.set_xlabel('times')
+
+    # plt.show(block=True)
+    # Select times and plot
+    # mask_params = dict(markersize=10, markerfacecolor="y")
+    fig, anim = evoked_diff.animate_topomap(times=epochs.times, ch_type="eeg", frame_rate=12, show=True, blit=False,
+                                            time_unit='s', butterfly=True)  # , mask=mask, mask_params=mask_params)
+    anim.save('animation.mp4')
 
 
 def decodingplot(scores_cond, p_values_cond, times, alpha=0.05, color='r', tmin=-0.8, tmax=0.3):

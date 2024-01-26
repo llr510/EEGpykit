@@ -195,7 +195,7 @@ def cluster_stats_indiv(X, n_jobs=-1):
     # this functions gets the t-values and performs a cluster permutation test on them to determine p-values..
     p_threshold = 0.05
     t_threshold = -stats.distributions.t.ppf(p_threshold / 2., n_subjects - 1)
-    print('number of subjects:', n_subjects)
+    print('number of subjects/trials:', n_subjects)
     print('t-threshold is:', t_threshold)
     print('p-threshold is:', p_threshold)
     T_obs_, clusters, p_values, _ = spatio_temporal_cluster_1samp_test(
@@ -320,27 +320,18 @@ def test_data_mvpa():
     except KeyError:
         pass
 
-    animated_topo_map(epochs)
+    activity_map_plots(epochs, group1=var1_events, group2=var2_events)
 
     quit()
+
     X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
     y = epochs.events[:, 2]
-    times = epochs.times
-
     y[np.argwhere(np.isin(y, var1)).ravel()] = 0
     y[np.argwhere(np.isin(y, var2)).ravel()] = 1
-
     X, y = len_match_arrays(X, y)
-    x1 = X[np.where(y == 0)[0], :, :]
-    x2 = X[np.where(y == 1)[0], :, :]
-    X_list = [x1, x2]
-    labels = ['auditory', 'visual']
     print(X.shape, y.shape)
-
-    # temporal_decoding_with_smoothing(epochs.times, X, y, filename=f'../analyses/temporal_decode_test_data.png',
-    #                                  plotting=indiv_plot, scoring=scoring)
-    indiv_cluster_stats_plot(X_list, labels, var1_events, var2_events, times, epochs.ch_names, output_dir='', jobs=-1, )
-    # group_MVPA_and_plot(X_list, labels, var1_events, var2_events, times, output_dir='', jobs=-1)
+    temporal_decoding_with_smoothing(epochs.times, X, y, filename=f'../analyses/temporal_decode_test_data.png',
+                                     plotting=indiv_plot, scoring=scoring)
 
 
 def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="roc_auc", output_dir='',
@@ -525,73 +516,69 @@ def group_MVPA_and_plot(X_list, labels, var1_events, var2_events, times, output_
     plt.savefig(Path(output_dir, "Group_Sensor-space-decoding_plot.png"), dpi=240)
 
 
-def scaler(X, arr_min, arr_max, new_min, new_max):
-    X_std = (X - arr_min) / (arr_max - arr_min)
-    X_scaled = X_std * (new_max - new_min) + new_min
-    return X_scaled
-
-
-def indiv_cluster_stats_plot(X_list, labels, var1_events, var2_events, times, ch_names, output_dir='', jobs=-1):
-    # average over epochs - now channels x times
-    X_channels = [x.mean(axis=0) for x in X_list]
-
-    # X_min = min([x.min() for x in X_channels])
-    # X_max = max([x.max() for x in X_channels])
-    # X_abs = [scaler(x, X_min, X_max, 0, 1) for x in X_channels]
-    # X_diff = X_abs[0] - X_abs[1]
-
-    # subtract data from each condition
-    X_diff = X_channels[0] - X_channels[1]
-    significance_plot = False
-    if significance_plot:
-        # # get clusters for each channel
-        indiv_pvalues = cluster_stats_group(X_list, jobs)
-        X_diff[np.where(indiv_pvalues > 0.05)] = 0
-
-    fig, ax = plt.subplots()
-    print(times)
-    plot = ax.pcolormesh(times, ch_names, X_diff, cmap='twilight', norm=TwoSlopeNorm(0))
-    fig.colorbar(plot)
-
-    ax.set_ylabel('channels')
-    ax.set_xlabel('times')
-    plt.show(block=True)
-
-
 def average_epochs(X):
+    """
+    Get the mean of an epochs array across the epochs dimensions.
+    Used to created evoked objects that can used for 2d+ plotting
+
+    @param X: epochs x channels x samples
+    @return: channels x samples
+    """
     return X.mean(axis=0)
 
 
-def animated_topo_map(epochs):
+def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.05):
+    """
+    Plot figures for individual participant sensor activity comparing two different conditions together.
+    Significant differences are calculating using a spatio-temporal cluster t-test.
+    Plots are of weighted  activity deltas.
+
+    @param epochs: mne.Epochs object
+    @param group1: list of event labels
+    @param group2: list of event labels
+    @param plot_significance: filters and only plots significant data if True
+    @param alpha: p level for filtering and mask
+    @return: heatmap plot, topomap plot, animated topomap plot
+    """
     times = epochs.times
-    evoked_auditory = epochs['auditory'].average(method=average_epochs)
-    evoked_visual = epochs['visual'].average(method=average_epochs)
+    evoked_auditory = epochs[group1].average(method=average_epochs)
+    evoked_visual = epochs[group2].average(method=average_epochs)
+    # subtract evoked conditions
     evoked_diff = mne.combine_evoked([evoked_auditory, evoked_visual], weights=[1, -1])
     X_diff = evoked_diff.get_data()
 
-    sig = True
-
-    if sig:
+    if plot_significance:
         # Filter data by significance
         indiv_pvalues = cluster_stats_group([epochs['auditory'].get_data(), epochs['visual'].get_data()], n_jobs=-1)
         # Define a threshold and create the mask
-        mask = indiv_pvalues < 0.05
-        X_diff[np.where(indiv_pvalues > 0.05)] = 0
-        evoked_diff.data = X_diff
+        mask = indiv_pvalues < alpha
+        mask_params = dict(markersize=10, markerfacecolor="y")
+        # set non-significant values to 0
+        X_diff[np.where(indiv_pvalues > alpha)] = 0
 
-    fig, ax = plt.subplots()
+        evoked_sig = evoked_diff.copy()
+        evoked_sig.data = X_diff
+
+    heat, ax = plt.subplots()
     plot = ax.pcolormesh(times, epochs.ch_names, X_diff, cmap='twilight', norm=TwoSlopeNorm(0))
-    fig.colorbar(plot)
-
+    heat.colorbar(plot)
     ax.set_ylabel('channels')
     ax.set_xlabel('times')
 
     # plt.show(block=True)
     # Select times and plot
-    # mask_params = dict(markersize=10, markerfacecolor="y")
-    fig, anim = evoked_diff.animate_topomap(times=epochs.times, ch_type="eeg", frame_rate=12, show=True, blit=False,
-                                            time_unit='s', butterfly=True)  # , mask=mask, mask_params=mask_params)
-    anim.save('animation.mp4')
+
+    if plot_significance:
+        topo = evoked_sig.plot_topomap(times="auto", ch_type="eeg", mask=mask, mask_params=mask_params, show=True)
+        fig, anim = evoked_sig.animate_topomap(times=epochs.times, ch_type="eeg", frame_rate=12, show=False, blit=False,
+                                               time_unit='s', butterfly=False)  # , mask=mask, mask_params=mask_params)
+    else:
+        topo = evoked_diff.plot_topomap(times="auto", ch_type="eeg", show=True)
+        fig, anim = evoked_diff.animate_topomap(times=epochs.times, ch_type="eeg", frame_rate=12, show=False,
+                                                blit=False,
+                                                time_unit='s', butterfly=False)  # , mask=mask, mask_params=mask_params)
+
+    return heat, topo, anim
 
 
 def decodingplot(scores_cond, p_values_cond, times, alpha=0.05, color='r', tmin=-0.8, tmax=0.3):

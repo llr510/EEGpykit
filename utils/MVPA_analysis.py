@@ -149,9 +149,11 @@ def temporal_decoding_with_smoothing(times, x_data, y, filename, plotting=False,
 
     # time_decod.fit(x_data, y)
     # coef = get_coef(time_decod, 'patterns_', inverse_transform=True)
+
+    plot_svm_scores(times, score, scoring, Path(filename).stem)
+    plt.savefig(filename, dpi=150)
+
     if plotting:
-        plot_svm_scores(times, score, scoring, Path(filename).stem)
-        plt.savefig(filename, dpi=150)
         plt.show(block=True)
 
     # # store the evoked patterns that are more neurophysiologically interpretable..
@@ -397,6 +399,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
         y = epochs.events[:, 2]
         times = epochs.times
 
+        # Make and save individual plots
         plots = activity_map_plots(epochs, group1=var1_events, group2=var2_events, plot_significance=True)
         for key, plot in plots.items():
             if 'anim' in key:

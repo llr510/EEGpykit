@@ -3,7 +3,7 @@ import mne
 from pathlib import Path
 
 
-def run_AB_analysis():
+def run_AB_analysis(output_dir):
     """
     AB MVPA analysis:
     In block 1 (S-S condition) compare T1 vs T2 (Lag 1 vs 4; Lag 2 vs 4; Lag 3 vs 4)
@@ -23,8 +23,7 @@ def run_AB_analysis():
     #               jobs=-1)
 
     for stim in ['scene', 'dot']:
-        files, extra = get_filepaths_from_file(
-            f'../analyses/MVPA-AB/MVPA_analysis_list_{stim}.csv')
+        files, extra = get_filepaths_from_file(Path(output_dir, f'MVPA_analysis_list_{stim}.csv'))
 
         epochs_list = []
         for file in files:
@@ -35,7 +34,7 @@ def run_AB_analysis():
                       var1_events=[f'{stim}/T2/S-S'],
                       var2_events=[f'{stim}/T2/NS-NS'],
                       scoring="roc_auc",
-                      output_dir=f'../analyses/MVPA-AB/{stim}/T2_S-SvsNS-NS/',
+                      output_dir=Path(output_dir, f'{stim}/T2_S-SvsNS-NS/'),
                       indiv_plot=False,
                       concat_participants=False,
                       jobs=-1,
@@ -46,7 +45,7 @@ def run_AB_analysis():
                           var1_events=[f'{stim}/T1/{condition}'],
                           var2_events=[f'{stim}/T2/{condition}'],
                           scoring="roc_auc",
-                          output_dir=f'../analyses/MVPA-AB/{stim}/T1vsT2_{condition}/all_lags',
+                          output_dir=Path(output_dir, f'{stim}/T1vsT2_{condition}/all_lags'),
                           indiv_plot=False,
                           concat_participants=False,
                           jobs=-1,
@@ -57,11 +56,33 @@ def run_AB_analysis():
                               var1_events=[f'{stim}/T1/{condition}/lag{lag}'],
                               var2_events=[f'{stim}/T2/{condition}/lag{lag}'],
                               scoring="roc_auc",
-                              output_dir=f'../analyses/MVPA-AB/{stim}/T1vsT2_{condition}/lag{lag}',
+                              output_dir=Path(output_dir, f'{stim}/T1vsT2_{condition}/lag{lag}'),
                               indiv_plot=False,
                               concat_participants=False,
                               jobs=-1,
                               epochs_list=epochs_list)
+
+        # T2/SS vs T2/NS-NS for each lag
+        for lag in [1, 2, 3, 4]:
+            MVPA_analysis(files,
+                          var1_events=[f'{stim}/T2/S-S/lag{lag}'],
+                          var2_events=[f'{stim}/T2/NS-NS/lag{lag}'],
+                          scoring="roc_auc",
+                          output_dir=Path(output_dir, f'{stim}/S-SvsNS-NS_T2/lag{lag}'),
+                          indiv_plot=False,
+                          concat_participants=False,
+                          jobs=-1,
+                          epochs_list=epochs_list)
+        # T1/SS vs T2 NS-NS
+        MVPA_analysis(files,
+                      var1_events=[f'{stim}/T1/S-S'],
+                      var2_events=[f'{stim}/T2/NS-NS'],
+                      scoring="roc_auc",
+                      output_dir=Path(output_dir, f'{stim}/T1_S-SvsT2_NS-NS'),
+                      indiv_plot=False,
+                      concat_participants=False,
+                      jobs=-1,
+                      epochs_list=epochs_list)
 
 
 def run_training_analysis(output_dir):
@@ -180,58 +201,31 @@ def run_rads_analysis(output_dir):
                   var2_events=['Global'],
                   excluded_events=['Rate', 'Missed'],
                   scoring="roc_auc",
-                  output_dir=Path(output_dir,
-                                  'radiologists/normal_vs_global/'),
+                  output_dir=Path(output_dir, 'radiologists/normal_vs_global/'),
                   indiv_plot=False,
                   concat_participants=False,
                   jobs=-1,
                   epochs_list=epochs_list)
 
-
-def run_across_training_hits_tnegs():
-    """Session level analysis"""
-
-    files, extra = get_filepaths_from_file(
-        '../analyses/MVPA-viking/MVPA_analysis_list.csv')
-
-    epochs_list = []
-    for file in files:
-        epochs = mne.read_epochs(file)
-        epochs_list.append(epochs)
-
     MVPA_analysis(files,
-                  var1_events=['sesh_1/Normal/resp_Normal'],
-                  var2_events=['sesh_2/Normal/resp_Normal'],
+                  var1_events=['Normal/resp_Normal'],
+                  var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
                   excluded_events=['Rate', 'Missed'],
                   scoring="roc_auc",
-                  output_dir='../analyses/MVPA-viking/naives/across-training_hits-tnegs/normal/',
+                  output_dir=Path(output_dir, 'radiologists/normal_vs_abnormal_hits-tnegs/'),
                   indiv_plot=False,
-                  concat_participants=True,
-                  extra_event_labels=extra,
+                  concat_participants=False,
                   jobs=-1,
                   epochs_list=epochs_list)
 
     MVPA_analysis(files,
-                  var1_events=['sesh_1/Obvious/resp_Abnormal', 'sesh_1/Subtle/resp_Abnormal'],
-                  var2_events=['sesh_2/Obvious/resp_Abnormal', 'sesh_2/Subtle/resp_Abnormal'],
+                  var1_events=['Normal/resp_Normal'],
+                  var2_events=['Global/resp_Abnormal'],
                   excluded_events=['Rate', 'Missed'],
                   scoring="roc_auc",
-                  output_dir='../analyses/MVPA-viking/naives/across-training_hits-tnegs/abnormal/',
+                  output_dir=Path(output_dir, 'radiologists/normal_vs_global_hits-tnegs/'),
                   indiv_plot=False,
-                  concat_participants=True,
-                  extra_event_labels=extra,
-                  jobs=-1,
-                  epochs_list=epochs_list)
-
-    MVPA_analysis(files,
-                  var1_events=['sesh_1/Global/resp_Abnormal'],
-                  var2_events=['sesh_2/Global/resp_Abnormal'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir='../analyses/MVPA-viking/naives/across-training_hits-tnegs/global/',
-                  indiv_plot=False,
-                  concat_participants=True,
-                  extra_event_labels=extra,
+                  concat_participants=False,
                   jobs=-1,
                   epochs_list=epochs_list)
 
@@ -350,6 +344,6 @@ def run_pickle_rads():
 
 
 if '__main__' in __name__:
-    # run_training_analysis(output_dir='../analyses/MVPA-viking/')
-    # run_rads_analysis(output_dir='../analyses/MVPA-viking/')
-    run_AB_analysis()
+    run_training_analysis(output_dir='../analyses/MVPA-viking/')
+    run_rads_analysis(output_dir='../analyses/MVPA-viking/')
+    run_AB_analysis(output_dir='../analyses/MVPA-AB/')

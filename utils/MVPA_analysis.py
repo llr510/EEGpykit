@@ -578,17 +578,17 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
 
     if plot_significance:
         topo = evoked_diff.plot_topomap(times="auto", ch_type="eeg", mask=mask, mask_params=mask_params, show=True)
-        fig, anim = evoked_sig.animate_topomap(times=epochs.times, ch_type="eeg", frame_rate=12, show=False, blit=False,
-                                               time_unit='s')  # , mask=mask, mask_params=mask_params)
+        # fig, anim = evoked_sig.animate_topomap(times=epochs.times, ch_type="eeg", frame_rate=12, show=False, blit=False,
+        #                                        time_unit='s')  # , mask=mask, mask_params=mask_params)
     else:
         topo = evoked_diff.plot_topomap(times="auto", ch_type="eeg", show=True)
 
-        fig, anim = evoked_diff.animate_topomap(times=epochs.times, ch_type="eeg", frame_rate=12, show=False,
-                                                blit=False,
-                                                time_unit='s')  # , mask=mask, mask_params=mask_params)
+        # fig, anim = evoked_diff.animate_topomap(times=epochs.times, ch_type="eeg", frame_rate=12, show=False,
+        #                                         blit=False,
+        #                                         time_unit='s')  # , mask=mask, mask_params=mask_params)
 
     topo.suptitle(f"{'-'.join(group1)} vs {'-'.join(group2)} - Topomap{sig}")
-    return {'heatmap.png': heat, 'topomap.png': topo, 'animated_topomap.mp4': anim}
+    return {'heatmap.png': heat, 'topomap.png': topo}#, 'animated_topomap.mp4': anim}
 
 
 def decodingplot(scores_cond, p_values_cond, times, alpha=0.05, color='r', tmin=-0.8, tmax=0.3):

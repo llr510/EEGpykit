@@ -550,18 +550,23 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
     # subtract evoked conditions
     evoked_diff = mne.combine_evoked([evoked_auditory, evoked_visual], weights=[1, -1])
     X_diff = evoked_diff.get_data()
-
+    sig = ''
     if plot_significance:
         # Filter data by significance
         indiv_pvalues = cluster_stats_2samp([epochs[group1].get_data(), epochs[group2].get_data()], n_jobs=-1)
-        # Define a threshold and create the mask
-        mask = indiv_pvalues < alpha
-        mask_params = dict(markersize=10, markerfacecolor="y")
-        # set non-significant values to 0
-        X_diff[np.where(indiv_pvalues > alpha)] = 0
+        if indiv_pvalues.all() > alpha:
+            print('no significant clusters for individual plots')
+            plot_significance = False
+        else:
+            # Define a threshold and create the mask
+            mask = indiv_pvalues < alpha
+            mask_params = dict(markersize=10, markerfacecolor="y")
+            # set non-significant values to 0
+            X_diff[np.where(indiv_pvalues > alpha)] = 0
 
-        evoked_sig = evoked_diff.copy()
-        evoked_sig.data = X_diff
+            evoked_sig = evoked_diff.copy()
+            evoked_sig.data = X_diff
+            sig = f' p<{alpha}'
 
     heat, ax = plt.subplots()
     plot = ax.pcolormesh(times, epochs.ch_names, X_diff, cmap='twilight', norm=TwoSlopeNorm(0))
@@ -569,7 +574,7 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
     heat.colorbar(plot)
     ax.set_ylabel('channels')
     ax.set_xlabel('times')
-    ax.set_title(f"{'-'.join(group1)}_vs_{'-'.join(group2)} - Heatmap")
+    ax.set_title(f"{'-'.join(group1)} vs {'-'.join(group2)} - Heatmap{sig}")
 
     if plot_significance:
         topo = evoked_diff.plot_topomap(times="auto", ch_type="eeg", mask=mask, mask_params=mask_params, show=True)
@@ -582,7 +587,7 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
                                                 blit=False,
                                                 time_unit='s')  # , mask=mask, mask_params=mask_params)
 
-    topo.suptitle(f"{'-'.join(group1)}_vs_{'-'.join(group2)} - Topomap")
+    topo.suptitle(f"{'-'.join(group1)} vs {'-'.join(group2)} - Topomap{sig}")
     return {'heatmap.png': heat, 'topomap.png': topo, 'animated_topomap.mp4': anim}
 
 

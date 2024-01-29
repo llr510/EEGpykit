@@ -505,7 +505,6 @@ def MVPA_group_analysis(groups, var1_events, var2_events, excluded_events=[], sc
 
 def group_MVPA_and_plot(X_list, labels, var1_events, var2_events, times, output_dir='', jobs=-1):
     group_pvalues = cluster_stats_2samp(X_list, jobs)
-    print(group_pvalues)
     # Better plot with significance
     funcreturn, _ = decodingplot_group(scores_cond_group=X_list, p_values_cond=group_pvalues, times=times,
                                        labels=labels, alpha=0.05, tmin=times[0], tmax=times[-1])
@@ -588,7 +587,7 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
         #                                         time_unit='s')  # , mask=mask, mask_params=mask_params)
 
     topo.suptitle(f"{'-'.join(group1)} vs {'-'.join(group2)} - Topomap{sig}")
-    return {'heatmap.png': heat, 'topomap.png': topo}#, 'animated_topomap.mp4': anim}
+    return {'heatmap.png': heat, 'topomap.png': topo}  # , 'animated_topomap.mp4': anim}
 
 
 def decodingplot(scores_cond, p_values_cond, times, alpha=0.05, color='r', tmin=-0.8, tmax=0.3):
@@ -664,17 +663,11 @@ def decodingplot_group(scores_cond_group, p_values_cond, times, labels, alpha=0.
     for group_n, scores_cond in enumerate(scores_cond_group):
         scores = np.array(scores_cond)
         sig = p_values_cond < alpha
-        print(scores.shape)
-        if len(scores.shape) == 1:
-            scores_m = np.nanmean(scores, axis=0)
-            n = len(scores)
-            n -= sum(np.isnan(np.mean(scores, axis=1)))  # identify the nan subjs and remove them.
-            sem = np.nanstd(scores, axis=0) / np.sqrt(n)
-        else:
-            # n_epochs × n_channels × n_times
-            scores_m = np.nanmean(scores, axis=(0, 1))
-            n = scores.shape[0]
-            sem = np.nanstd(scores, axis=(0, 1)) / np.sqrt(n)
+
+        scores_m = np.nanmean(scores, axis=0)
+        n = len(scores)
+        n -= sum(np.isnan(np.mean(scores, axis=1)))  # identify the nan subjs and remove them.
+        sem = np.nanstd(scores, axis=0) / np.sqrt(n)
 
         ax1.plot(times, scores_m, 'k', linewidth=1)
         ax1.fill_between(times, scores_m - sem, scores_m + sem, color=colors[group_n], alpha=0.3,

@@ -76,13 +76,19 @@ def run_AB_analysis(output_dir):
         # T1/SS vs T2 NS-NS
         MVPA_analysis(files,
                       var1_events=[f'{stim}/T1/S-S'],
-                      var2_events=[f'{stim}/T2/NS-NS'],
+                      var2_events=[f'{stim}/T1/NS-NS'],
                       scoring="roc_auc",
-                      output_dir=Path(output_dir, f'{stim}/T1_S-SvsT2_NS-NS'),
+                      output_dir=Path(output_dir, f'{stim}/T1_S-SvsT1_NS-NS'),
                       indiv_plot=False,
                       concat_participants=False,
                       jobs=-1,
                       epochs_list=epochs_list)
+
+        '''T1 to T2 S-S across lags'''
+        '''T1 to T2 NS-NS across lags'''
+        '''those two vs each other'''
+
+        '''T1 S-S vs T1 NS-NS for each lag'''
 
 
 def run_training_analysis(output_dir):
@@ -344,6 +350,6 @@ def run_pickle_rads():
 
 
 if '__main__' in __name__:
-    run_training_analysis(output_dir='../analyses/MVPA-viking/')
-    run_rads_analysis(output_dir='../analyses/MVPA-viking/')
+    #run_training_analysis(output_dir='../analyses/MVPA-viking/')
+    #run_rads_analysis(output_dir='../analyses/MVPA-viking/')
     run_AB_analysis(output_dir='../analyses/MVPA-AB/')

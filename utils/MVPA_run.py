@@ -43,6 +43,7 @@ def run_AB_analysis(output_dir):
                       jobs=-1,
                       epochs_list=epochs_list)
 
+        out = {}
         for condition in ['S-S', 'NS-NS']:
             MVPA_analysis(files,
                           var1_events=[f'{stim}/T1/{condition}'],
@@ -55,15 +56,24 @@ def run_AB_analysis(output_dir):
                           epochs_list=epochs_list)
 
             for lag in [1, 2, 3, 4]:
-                MVPA_analysis(files,
-                              var1_events=[f'{stim}/T1/{condition}/lag{lag}'],
-                              var2_events=[f'{stim}/T2/{condition}/lag{lag}'],
-                              scoring="roc_auc",
-                              output_dir=Path(output_dir, f'{stim}/T1vsT2_{condition}/lag{lag}'),
-                              indiv_plot=False,
-                              concat_participants=False,
-                              jobs=-1,
-                              epochs_list=epochs_list)
+                out[f'{condition}_{lag}'], _, _, times = MVPA_analysis(files,
+                                                                       var1_events=[f'{stim}/T1/{condition}/lag{lag}'],
+                                                                       var2_events=[f'{stim}/T2/{condition}/lag{lag}'],
+                                                                       scoring="roc_auc",
+                                                                       output_dir=Path(output_dir,
+                                                                                       f'{stim}/T1vsT2_{condition}/lag{lag}'),
+                                                                       indiv_plot=False,
+                                                                       concat_participants=False,
+                                                                       jobs=-1,
+                                                                       epochs_list=epochs_list)
+
+        for lag in [1, 2, 3, 4]:
+            group_MVPA_and_plot([out[f'S-S_{lag}'], out[f'NS-NS_{lag}']], labels=['S-S', 'NS-NS'],
+                                var1_events=['Normal'],
+                                var2_events=['Obvious', 'Subtle'],
+                                times=times,
+                                output_dir=Path(output_dir, f'{stim}/T1vsT2_S-SvsNS-NS/lag{lag}'),
+                                jobs=-1)
 
         # T2/SS vs T2/NS-NS for each lag
         for lag in [1, 2, 3, 4]:
@@ -76,6 +86,7 @@ def run_AB_analysis(output_dir):
                           concat_participants=False,
                           jobs=-1,
                           epochs_list=epochs_list)
+
         # T1/SS vs T2 NS-NS
         MVPA_analysis(files,
                       var1_events=[f'{stim}/T1/S-S'],
@@ -240,7 +251,6 @@ def run_rads_analysis(output_dir):
 
 
 def run_training_hits_tnegs(output_dir):
-
     """
     Individual level analysis
     """
@@ -371,8 +381,24 @@ def run_pickle_rads():
 
 
 if '__main__' in __name__:
-    # run_training_analysis(output_dir='../analyses/MVPA-viking/')
-    run_training_hits_tnegs(output_dir='../analyses/MVPA-viking/')
-    # run_rads_analysis(output_dir='../analyses/MVPA-viking/')
-    # run_AB_analysis(output_dir='../analyses/MVPA-AB/')
+    try:
+        run_AB_analysis(output_dir='../analyses/MVPA-AB/')
+    except Exception as e:
+        print(e)
+        print('AB analysis failed')
+
+    try:
+        run_training_analysis(output_dir='../analyses/MVPA-viking/')
+        run_training_hits_tnegs(output_dir='../analyses/MVPA-viking/')
+    except Exception as e:
+        print(e)
+        print('Naives analysis failed')
+
+    try:
+        run_rads_analysis(output_dir='../analyses/MVPA-viking/')
+    except Exception as e:
+        print(e)
+        print('Rads analysis failed')
+
+
 

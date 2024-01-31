@@ -394,6 +394,22 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             except KeyError:
                 pass
 
+        # Sort channels in row-major snakelike ordering
+        sorted_ch_names = ['Fp1', 'Fpz', 'Fp2',
+                           'AF8', 'AF4', 'AF3', 'AF7',
+                           'F7', 'F5', 'F3', 'F1', 'Fz', 'F2', 'F4', 'F6', 'F8',
+                           'FT8', 'FC6', 'FC4', 'FC2', 'FCz', 'FC1', 'FC3', 'FC5', 'FT7',
+                           'T7', 'C5', 'C3', 'C1', 'Cz', 'C2', 'C4', 'C6', 'T8', 'M2',
+                           'TP8', 'CP6', 'CP4', 'CP2', 'CPz', 'CP1', 'CP3', 'CP5', 'TP7', 'M1',
+                           'P7', 'P5', 'P3', 'P1', 'Pz', 'P2', 'P4', 'P6', 'P8',
+                           'PO8', 'PO6', 'PO4', 'POz', 'PO3', 'PO5', 'PO7',
+                           'O1', 'Oz', 'O2']
+        new_channel_order = [x for x in sorted_ch_names if x in epochs.ch_names]
+        if len(new_channel_order) == len(epochs.ch_names):
+            epochs.reorder_channels(new_channel_order)
+        else:
+            print('Mismatch between sorted channel names and epochs channels names. Sorting not applied.')
+
         X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
 
         y = epochs.events[:, 2]
@@ -407,6 +423,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             else:
                 plot.savefig(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'), dpi=240)
 
+        # clean up epochs object to save on memory
         del epochs
         y[np.argwhere(np.isin(y, var1)).ravel()] = 0
         y[np.argwhere(np.isin(y, var2)).ravel()] = 1
@@ -478,7 +495,6 @@ def MVPA_group_analysis(groups, var1_events, var2_events, excluded_events=[], sc
     @param scoring:
     @param output_dir:
     @param jobs:
-    @return:
     """
     if not Path(output_dir).exists():
         Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -553,21 +569,22 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
     if plot_significance:
         # Filter data by significance
         indiv_pvalues = cluster_stats_2samp([epochs[group1].get_data(), epochs[group2].get_data()], n_jobs=-1)
-        if indiv_pvalues.all() > alpha:
-            print('no significant clusters for individual plots')
-            plot_significance = False
-        else:
-            # Define a threshold and create the mask
-            mask = indiv_pvalues < alpha
-            mask_params = dict(markersize=10, markerfacecolor="y")
-            # set non-significant values to 0
-            X_diff[np.where(indiv_pvalues > alpha)] = 0
+        # print(indiv_pvalues)
+        # if indiv_pvalues.all() > alpha:
+        #     print('no significant clusters for individual plots')
+        #     plot_significance = False
+        # else:
+        # Define a threshold and create the mask
+        mask = indiv_pvalues < alpha
+        mask_params = dict(markersize=10, markerfacecolor="y")
+        # set non-significant values to 0
+        X_diff[np.where(indiv_pvalues > alpha)] = 0
 
-            evoked_sig = evoked_diff.copy()
-            evoked_sig.data = X_diff
-            sig = f' p<{alpha}'
+        evoked_sig = evoked_diff.copy()
+        evoked_sig.data = X_diff
+        sig = f' p<{alpha}'
 
-    heat, ax = plt.subplots()
+    heat, ax = plt.subplots(figsize=(10, 10))
     plot = ax.pcolormesh(times, epochs.ch_names, X_diff, cmap='twilight', norm=TwoSlopeNorm(0))
 
     heat.colorbar(plot)
@@ -577,8 +594,8 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
 
     if plot_significance:
         topo = evoked_diff.plot_topomap(times="auto", ch_type="eeg", mask=mask, mask_params=mask_params, show=True)
-        # fig, anim = evoked_sig.animate_topomap(times=epochs.times, ch_type="eeg", frame_rate=12, show=False, blit=False,
-        #                                        time_unit='s')  # , mask=mask, mask_params=mask_params)
+        # fig, anim = evoked_sig.animate_topomap(times=epochs.times, ch_type="eeg", frame_rate=12, show=False,
+        # blit=False, time_unit='s')  # , mask=mask, mask_params=mask_params)
     else:
         topo = evoked_diff.plot_topomap(times="auto", ch_type="eeg", show=True)
 
@@ -749,14 +766,17 @@ def get_filepaths_from_file(analysis_file):
 
 if '__main__' in __name__:
     # files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list.csv')
-    # MVPA_analysis(files=files,
-    #               var1_events=['Obvious', 'Subtle'],
-    #               var2_events=['Normal'],
-    #               excluded_events=['Missed', 'Rate'], scoring="roc_auc",
-    #               output_dir='../analyses/MVPA',
-    #               indiv_plot=False,
-    #               concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1,
-    #               pickle_ouput=False)
+    # files = files[0]
+    # print(files)
+    MVPA_analysis(files=[Path(
+        '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/AB/EEG/20220131_1255_PPT_1.epo.fif')],
+                  var1_events=['S-S/lag4'],
+                  var2_events=['NS-NS/lag4'],
+                  excluded_events=[], scoring="roc_auc",
+                  output_dir='../analyses/MVPA',
+                  indiv_plot=False,
+                  concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1,
+                  pickle_ouput=False)
 
     # files1, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh1.csv')
     # files2, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh2.csv')
@@ -767,4 +787,4 @@ if '__main__' in __name__:
     #                     scoring="roc_auc",
     #                     output_dir='../analyses/MVPA_group',
     #                     indiv_plot=False, jobs=-1)
-    test_data_mvpa()
+    # test_data_mvpa()

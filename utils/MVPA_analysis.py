@@ -358,6 +358,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
     """
 
     scores_list = []
+    evoked_list = {'group1': [], 'group2': []}
     X_list = []
     y_list = []
 
@@ -415,6 +416,9 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
 
         X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
 
+        evoked_list[var1_events].append(epochs[var1_events].average(method=average_epochs))
+        evoked_list[var2_events].append(epochs[var2_events].average(method=average_epochs))
+
         y = epochs.events[:, 2]
         times = epochs.times
 
@@ -451,6 +455,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
                                                       plotting=indiv_plot, scoring=scoring, jobs=jobs)
             scores_list.append(scores)
 
+    # Do group analysis plots
     if not pickle_ouput:
         if concat_participants:
             X = np.concatenate(X_list, axis=0)
@@ -485,6 +490,17 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             funcreturn.axes.set_ylabel('AUC')
             plt.savefig(Path(output_dir, "Group_Sensor-space-decoding_plot.png"), dpi=240)
             plt.close()
+
+            # Make and save group plots
+            plots = activity_map_plots(evoked_list, group1=var1_events, group2=var2_events, plot_significance=True)
+            # for key, plot in plots.items():
+            #     if 'anim' in key:
+            #         plot.save(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'))
+            #     else:
+            #         plot.savefig(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'), dpi=240)
+            #
+            #     plot.clf()
+            #     plt.close()
 
             return X, y, scores_pvalues, times
 
@@ -567,16 +583,31 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
     @param alpha: p level for filtering and mask
     @return: heatmap plot, topomap plot, animated topomap plot
     """
-    times = epochs.times
-    evoked_auditory = epochs[group1].average(method=average_epochs)
-    evoked_visual = epochs[group2].average(method=average_epochs)
-    # subtract evoked conditions
-    evoked_diff = mne.combine_evoked([evoked_auditory, evoked_visual], weights=[1, -1])
+    if type(epochs) is dict():
+        # If input is a 2 key dictionary of evoked objects, get a group plot instead
+        evoked_group1 = mne.grand_average(epochs[group1])
+        evoked_group2 = mne.grand_average(epochs[group2])
+        times = evoked_group1.times
+
+        data_group1 = np.vstack([i.get_data() for i in epochs[group1]])
+        data_group2 = np.vstack([i.get_data() for i in epochs[group2]])
+
+    else:
+        times = epochs.times
+        evoked_group1 = epochs[group1].average(method=average_epochs)
+        evoked_group2 = epochs[group2].average(method=average_epochs)
+
+        data_group1 = epochs[group1].get_data()
+        data_group2 = epochs[group2].get_data()
+
+
+        # subtract evoked conditions
+    evoked_diff = mne.combine_evoked([evoked_group1, evoked_group2], weights=[1, -1])
     X_diff = evoked_diff.get_data()
     sig = ''
     if plot_significance:
         # Filter data by significance
-        indiv_pvalues = cluster_stats_2samp([epochs[group1].get_data(), epochs[group2].get_data()], n_jobs=-1)
+        indiv_pvalues = cluster_stats_2samp([data_group1, data_group2], n_jobs=-1)
         # print(indiv_pvalues)
         # if indiv_pvalues.all() > alpha:
         #     print('no significant clusters for individual plots')
@@ -778,13 +809,13 @@ if '__main__' in __name__:
     # print(files)
     MVPA_analysis(files=[Path(
         '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/AB/EEG/20220131_1255_PPT_1.epo.fif')],
-                  var1_events=['S-S/lag4'],
-                  var2_events=['NS-NS/lag4'],
-                  excluded_events=[], scoring="roc_auc",
-                  output_dir='../analyses/MVPA',
-                  indiv_plot=False,
-                  concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1,
-                  pickle_ouput=False)
+        var1_events=['S-S/lag4'],
+        var2_events=['NS-NS/lag4'],
+        excluded_events=[], scoring="roc_auc",
+        output_dir='../analyses/MVPA',
+        indiv_plot=False,
+        concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1,
+        pickle_ouput=False)
 
     # files1, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh1.csv')
     # files2, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh2.csv')

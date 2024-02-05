@@ -2,7 +2,9 @@ from MVPA_analysis import MVPA_analysis, MVPA_group_analysis, get_filepaths_from
 import mne
 from pathlib import Path
 import matplotlib.pyplot as plt
+import matplotlib
 
+matplotlib.use('Agg')
 plt.rcParams['animation.ffmpeg_path'] = '/users/llr510/.local/share/ffmpeg-downloader/ffmpeg'
 
 
@@ -37,7 +39,7 @@ def run_AB_analysis(output_dir):
                       var1_events=[f'{stim}/T2/S-S'],
                       var2_events=[f'{stim}/T2/NS-NS'],
                       scoring="roc_auc",
-                      output_dir=Path(output_dir, f'{stim}/T2_S-SvsNS-NS/'),
+                      output_dir=Path(output_dir, f'{stim}/T2_S-SvsNS-NS/all_lags'),
                       indiv_plot=False,
                       concat_participants=False,
                       jobs=-1,
@@ -45,15 +47,16 @@ def run_AB_analysis(output_dir):
 
         out = {}
         for condition in ['S-S', 'NS-NS']:
-            MVPA_analysis(files,
-                          var1_events=[f'{stim}/T1/{condition}'],
-                          var2_events=[f'{stim}/T2/{condition}'],
-                          scoring="roc_auc",
-                          output_dir=Path(output_dir, f'{stim}/T1vsT2_{condition}/all_lags'),
-                          indiv_plot=False,
-                          concat_participants=False,
-                          jobs=-1,
-                          epochs_list=epochs_list)
+            out[f'{condition}'], _, _, times = MVPA_analysis(files,
+                                                             var1_events=[f'{stim}/T1/{condition}'],
+                                                             var2_events=[f'{stim}/T2/{condition}'],
+                                                             scoring="roc_auc",
+                                                             output_dir=Path(output_dir,
+                                                                             f'{stim}/T1vsT2_{condition}/all_lags'),
+                                                             indiv_plot=False,
+                                                             concat_participants=False,
+                                                             jobs=-1,
+                                                             epochs_list=epochs_list)
 
             for lag in [1, 2, 3, 4]:
                 out[f'{condition}_{lag}'], _, _, times = MVPA_analysis(files,
@@ -67,32 +70,38 @@ def run_AB_analysis(output_dir):
                                                                        jobs=-1,
                                                                        epochs_list=epochs_list)
 
+        group_MVPA_and_plot([out[f'S-S'], out[f'NS-NS']], labels=['S-S', 'NS-NS'],
+                            var1_events=[f'S-S'],
+                            var2_events=[f'NS-NS'],
+                            times=times,
+                            output_dir=Path(output_dir, f'{stim}/T1vsT2_S-SvsNS-NS/all_lags'),
+                            jobs=-1)
+
         for lag in [1, 2, 3, 4]:
             group_MVPA_and_plot([out[f'S-S_{lag}'], out[f'NS-NS_{lag}']], labels=['S-S', 'NS-NS'],
-                                var1_events=['Normal'],
-                                var2_events=['Obvious', 'Subtle'],
+                                var1_events=[f'S-S/{lag}'],
+                                var2_events=[f'NS-NS/{lag}'],
                                 times=times,
                                 output_dir=Path(output_dir, f'{stim}/T1vsT2_S-SvsNS-NS/lag{lag}'),
                                 jobs=-1)
 
-        # T2/SS vs T2/NS-NS for each lag
-        for lag in [1, 2, 3, 4]:
+            # T2/SS vs T2/NS-NS for each lag
             MVPA_analysis(files,
                           var1_events=[f'{stim}/T2/S-S/lag{lag}'],
                           var2_events=[f'{stim}/T2/NS-NS/lag{lag}'],
                           scoring="roc_auc",
-                          output_dir=Path(output_dir, f'{stim}/S-SvsNS-NS_T2/lag{lag}'),
+                          output_dir=Path(output_dir, f'{stim}/T2_S-SvsNS-NS/lag{lag}'),
                           indiv_plot=False,
                           concat_participants=False,
                           jobs=-1,
                           epochs_list=epochs_list)
 
-        # T1/SS vs T2 NS-NS
+        # T1/SS vs T1/NS-NS
         MVPA_analysis(files,
                       var1_events=[f'{stim}/T1/S-S'],
                       var2_events=[f'{stim}/T1/NS-NS'],
                       scoring="roc_auc",
-                      output_dir=Path(output_dir, f'{stim}/T1_S-SvsT1_NS-NS'),
+                      output_dir=Path(output_dir, f'{stim}/T1_S-SvsNS-NS/all_lags'),
                       indiv_plot=False,
                       concat_participants=False,
                       jobs=-1,
@@ -399,6 +408,3 @@ if '__main__' in __name__:
     except Exception as e:
         print(e)
         print('Rads analysis failed')
-
-
-

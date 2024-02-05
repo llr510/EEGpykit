@@ -153,8 +153,8 @@ def temporal_decoding_with_smoothing(times, x_data, y, filename, plotting=False,
     plot_svm_scores(times, score, scoring, Path(filename).stem)
     plt.savefig(filename, dpi=150)
 
-    if plotting:
-        plt.show(block=True)
+    # if plotting:
+    #     plt.show(block=True)
 
     # # store the evoked patterns that are more neurophysiologically interpretable..
     # evoked = mne.EvokedArray(coef, X.info, tmin=X.times[0])

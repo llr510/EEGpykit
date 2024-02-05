@@ -152,6 +152,7 @@ def temporal_decoding_with_smoothing(times, x_data, y, filename, plotting=False,
 
     plot_svm_scores(times, score, scoring, Path(filename).stem)
     plt.savefig(filename, dpi=150)
+    plt.close()
 
     # if plotting:
     #     plt.show(block=True)
@@ -322,6 +323,8 @@ def test_data_mvpa():
             plot.save(f'../analyses/mne_test_data_{key}')
         else:
             plot.savefig(f'../analyses/mne_test_data_{key}', dpi=240)
+        plot.clf()
+        plt.close()
     quit()
 
     X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
@@ -423,6 +426,9 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             else:
                 plot.savefig(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'), dpi=240)
 
+            plot.clf()
+            plt.close()
+
         # clean up epochs object to save on memory
         del epochs
         y[np.argwhere(np.isin(y, var1)).ravel()] = 0
@@ -478,6 +484,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             funcreturn.axes.set_xlabel('Time (sec)')
             funcreturn.axes.set_ylabel('AUC')
             plt.savefig(Path(output_dir, "Group_Sensor-space-decoding_plot.png"), dpi=240)
+            plt.close()
 
             return X, y, scores_pvalues, times
 
@@ -533,6 +540,7 @@ def group_MVPA_and_plot(X_list, labels, var1_events, var2_events, times, output_
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     plt.savefig(Path(output_dir, "Group_Sensor-space-decoding_plot.png"), dpi=240)
+    plt.close()
 
 
 def average_epochs(X):

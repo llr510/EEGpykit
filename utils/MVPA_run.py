@@ -41,34 +41,31 @@ def run_AB_analysis(output_dir):
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'{stim}/T2_S-SvsNS-NS/all_lags'),
                       indiv_plot=False,
-                      concat_participants=False,
                       jobs=-1,
                       epochs_list=epochs_list)
 
         out = {}
         for condition in ['S-S', 'NS-NS']:
-            out[f'{condition}'], _, _, times = MVPA_analysis(files,
-                                                             var1_events=[f'{stim}/T1/{condition}'],
-                                                             var2_events=[f'{stim}/T2/{condition}'],
-                                                             scoring="roc_auc",
-                                                             output_dir=Path(output_dir,
-                                                                             f'{stim}/T1vsT2_{condition}/all_lags'),
-                                                             indiv_plot=False,
-                                                             concat_participants=False,
-                                                             jobs=-1,
-                                                             epochs_list=epochs_list)
+            out[f'{condition}'], _, times = MVPA_analysis(files,
+                                                          var1_events=[f'{stim}/T1/{condition}'],
+                                                          var2_events=[f'{stim}/T2/{condition}'],
+                                                          scoring="roc_auc",
+                                                          output_dir=Path(output_dir,
+                                                                          f'{stim}/T1vsT2_{condition}/all_lags'),
+                                                          indiv_plot=False,
+                                                          jobs=-1,
+                                                          epochs_list=epochs_list)
 
             for lag in [1, 2, 3, 4]:
-                out[f'{condition}_{lag}'], _, _, times = MVPA_analysis(files,
-                                                                       var1_events=[f'{stim}/T1/{condition}/lag{lag}'],
-                                                                       var2_events=[f'{stim}/T2/{condition}/lag{lag}'],
-                                                                       scoring="roc_auc",
-                                                                       output_dir=Path(output_dir,
-                                                                                       f'{stim}/T1vsT2_{condition}/lag{lag}'),
-                                                                       indiv_plot=False,
-                                                                       concat_participants=False,
-                                                                       jobs=-1,
-                                                                       epochs_list=epochs_list)
+                out[f'{condition}_{lag}'], _, times = MVPA_analysis(files,
+                                                                    var1_events=[f'{stim}/T1/{condition}/lag{lag}'],
+                                                                    var2_events=[f'{stim}/T2/{condition}/lag{lag}'],
+                                                                    scoring="roc_auc",
+                                                                    output_dir=Path(output_dir,
+                                                                                    f'{stim}/T1vsT2_{condition}/lag{lag}'),
+                                                                    indiv_plot=False,
+                                                                    jobs=-1,
+                                                                    epochs_list=epochs_list)
 
         group_MVPA_and_plot([out[f'S-S'], out[f'NS-NS']], labels=['S-S', 'NS-NS'],
                             var1_events=[f'S-S'],
@@ -92,7 +89,6 @@ def run_AB_analysis(output_dir):
                           scoring="roc_auc",
                           output_dir=Path(output_dir, f'{stim}/T2_S-SvsNS-NS/lag{lag}'),
                           indiv_plot=False,
-                          concat_participants=False,
                           jobs=-1,
                           epochs_list=epochs_list)
 
@@ -103,7 +99,6 @@ def run_AB_analysis(output_dir):
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'{stim}/T1_S-SvsNS-NS/all_lags'),
                       indiv_plot=False,
-                      concat_participants=False,
                       jobs=-1,
                       epochs_list=epochs_list)
 
@@ -129,29 +124,27 @@ def run_training_analysis(output_dir):
         epochs = mne.read_epochs(file)
         epochs_list.append(epochs)
 
-    X_n_ab_s1, y, scores_pvalues, times = MVPA_analysis(files,
-                                                        var1_events=['Normal'],
-                                                        var2_events=['Obvious', 'Subtle'],
-                                                        excluded_events=['Rate', 'Missed'],
-                                                        scoring="roc_auc",
-                                                        output_dir=Path(output_dir,
-                                                                        'naives/pre-training/normal_vs_abnormal/'),
-                                                        indiv_plot=False,
-                                                        concat_participants=False,
-                                                        jobs=-1,
-                                                        epochs_list=epochs_list)
+    X_n_ab_s1, y, times = MVPA_analysis(files,
+                                        var1_events=['Normal'],
+                                        var2_events=['Obvious', 'Subtle'],
+                                        excluded_events=['Rate', 'Missed'],
+                                        scoring="roc_auc",
+                                        output_dir=Path(output_dir,
+                                                        'naives/pre-training/normal_vs_abnormal/'),
+                                        indiv_plot=False,
+                                        jobs=-1,
+                                        epochs_list=epochs_list)
 
-    X_n_g_s1, y, scores_pvalues, times = MVPA_analysis(files,
-                                                       var1_events=['Normal'],
-                                                       var2_events=['Global'],
-                                                       excluded_events=['Rate', 'Missed'],
-                                                       scoring="roc_auc",
-                                                       output_dir=Path(output_dir,
-                                                                       'naives/pre-training/normal_vs_global/'),
-                                                       indiv_plot=False,
-                                                       concat_participants=False,
-                                                       jobs=-1,
-                                                       epochs_list=epochs_list)
+    X_n_g_s1, y, times = MVPA_analysis(files,
+                                       var1_events=['Normal'],
+                                       var2_events=['Global'],
+                                       excluded_events=['Rate', 'Missed'],
+                                       scoring="roc_auc",
+                                       output_dir=Path(output_dir,
+                                                       'naives/pre-training/normal_vs_global/'),
+                                       indiv_plot=False,
+                                       jobs=-1,
+                                       epochs_list=epochs_list)
 
     """
     Session 2 Analysis
@@ -163,29 +156,27 @@ def run_training_analysis(output_dir):
         epochs = mne.read_epochs(file)
         epochs_list.append(epochs)
 
-    X_n_ab_s2, y, scores_pvalues, times = MVPA_analysis(files,
-                                                        var1_events=['Normal'],
-                                                        var2_events=['Obvious', 'Subtle'],
-                                                        excluded_events=['Rate', 'Missed'],
-                                                        scoring="roc_auc",
-                                                        output_dir=Path(output_dir,
-                                                                        'naives/post-training/normal_vs_abnormal/'),
-                                                        indiv_plot=False,
-                                                        concat_participants=False,
-                                                        jobs=-1,
-                                                        epochs_list=epochs_list)
+    X_n_ab_s2, y, times = MVPA_analysis(files,
+                                        var1_events=['Normal'],
+                                        var2_events=['Obvious', 'Subtle'],
+                                        excluded_events=['Rate', 'Missed'],
+                                        scoring="roc_auc",
+                                        output_dir=Path(output_dir,
+                                                        'naives/post-training/normal_vs_abnormal/'),
+                                        indiv_plot=False,
+                                        jobs=-1,
+                                        epochs_list=epochs_list)
 
-    X_n_g_s2, y, scores_pvalues, times = MVPA_analysis(files,
-                                                       var1_events=['Normal'],
-                                                       var2_events=['Global'],
-                                                       excluded_events=['Rate', 'Missed'],
-                                                       scoring="roc_auc",
-                                                       output_dir=Path(output_dir,
-                                                                       'naives/post-training/normal_vs_global/'),
-                                                       indiv_plot=False,
-                                                       concat_participants=False,
-                                                       jobs=-1,
-                                                       epochs_list=epochs_list)
+    X_n_g_s2, y, times = MVPA_analysis(files,
+                                       var1_events=['Normal'],
+                                       var2_events=['Global'],
+                                       excluded_events=['Rate', 'Missed'],
+                                       scoring="roc_auc",
+                                       output_dir=Path(output_dir,
+                                                       'naives/post-training/normal_vs_global/'),
+                                       indiv_plot=False,
+                                       jobs=-1,
+                                       epochs_list=epochs_list)
 
     """
     Session Both Analysis
@@ -221,7 +212,6 @@ def run_rads_analysis(output_dir):
                   output_dir=Path(output_dir,
                                   'radiologists/normal_vs_abnormal/'),
                   indiv_plot=False,
-                  concat_participants=False,
                   jobs=-1,
                   epochs_list=epochs_list)
 
@@ -232,7 +222,6 @@ def run_rads_analysis(output_dir):
                   scoring="roc_auc",
                   output_dir=Path(output_dir, 'radiologists/normal_vs_global/'),
                   indiv_plot=False,
-                  concat_participants=False,
                   jobs=-1,
                   epochs_list=epochs_list)
 
@@ -243,7 +232,6 @@ def run_rads_analysis(output_dir):
                   scoring="roc_auc",
                   output_dir=Path(output_dir, 'radiologists/normal_vs_abnormal_hits-tnegs/'),
                   indiv_plot=False,
-                  concat_participants=False,
                   jobs=-1,
                   epochs_list=epochs_list)
 
@@ -254,7 +242,6 @@ def run_rads_analysis(output_dir):
                   scoring="roc_auc",
                   output_dir=Path(output_dir, 'radiologists/normal_vs_global_hits-tnegs/'),
                   indiv_plot=False,
-                  concat_participants=False,
                   jobs=-1,
                   epochs_list=epochs_list)
 
@@ -274,29 +261,27 @@ def run_training_hits_tnegs(output_dir):
         epochs = mne.read_epochs(file)
         epochs_list.append(epochs)
 
-    X_n_ab_s1, y, scores_pvalues, times = MVPA_analysis(files,
-                                                        var1_events=['Normal/resp_Normal'],
-                                                        var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
-                                                        excluded_events=['Rate', 'Missed'],
-                                                        scoring="roc_auc",
-                                                        output_dir=Path(output_dir,
-                                                                        'naives/pre-training_hits-tnegs/normal_vs_abnormal/'),
-                                                        indiv_plot=False,
-                                                        concat_participants=False,
-                                                        jobs=-1,
-                                                        epochs_list=epochs_list)
+    X_n_ab_s1, y, times = MVPA_analysis(files,
+                                        var1_events=['Normal/resp_Normal'],
+                                        var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
+                                        excluded_events=['Rate', 'Missed'],
+                                        scoring="roc_auc",
+                                        output_dir=Path(output_dir,
+                                                        'naives/pre-training_hits-tnegs/normal_vs_abnormal/'),
+                                        indiv_plot=False,
+                                        jobs=-1,
+                                        epochs_list=epochs_list)
 
-    X_n_g_s1, y, scores_pvalues, times = MVPA_analysis(files,
-                                                       var1_events=['Normal/resp_Normal'],
-                                                       var2_events=['Global/resp_Abnormal'],
-                                                       excluded_events=['Rate', 'Missed'],
-                                                       scoring="roc_auc",
-                                                       output_dir=Path(output_dir,
-                                                                       'naives/pre-training_hits-tnegs/normal_vs_global/'),
-                                                       indiv_plot=False,
-                                                       concat_participants=False,
-                                                       jobs=-1,
-                                                       epochs_list=epochs_list)
+    X_n_g_s1, y, times = MVPA_analysis(files,
+                                       var1_events=['Normal/resp_Normal'],
+                                       var2_events=['Global/resp_Abnormal'],
+                                       excluded_events=['Rate', 'Missed'],
+                                       scoring="roc_auc",
+                                       output_dir=Path(output_dir,
+                                                       'naives/pre-training_hits-tnegs/normal_vs_global/'),
+                                       indiv_plot=False,
+                                       jobs=-1,
+                                       epochs_list=epochs_list)
 
     """
     Session 2 Analysis
@@ -308,29 +293,27 @@ def run_training_hits_tnegs(output_dir):
         epochs = mne.read_epochs(file)
         epochs_list.append(epochs)
 
-    X_n_ab_s2, y, scores_pvalues, times = MVPA_analysis(files,
-                                                        var1_events=['Normal/resp_Normal'],
-                                                        var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
-                                                        excluded_events=['Rate', 'Missed'],
-                                                        scoring="roc_auc",
-                                                        output_dir=Path(output_dir,
-                                                                        'naives/post-training_hits-tnegs/normal_vs_abnormal/'),
-                                                        indiv_plot=False,
-                                                        concat_participants=False,
-                                                        jobs=-1,
-                                                        epochs_list=epochs_list)
+    X_n_ab_s2, y, times = MVPA_analysis(files,
+                                        var1_events=['Normal/resp_Normal'],
+                                        var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
+                                        excluded_events=['Rate', 'Missed'],
+                                        scoring="roc_auc",
+                                        output_dir=Path(output_dir,
+                                                        'naives/post-training_hits-tnegs/normal_vs_abnormal/'),
+                                        indiv_plot=False,
+                                        jobs=-1,
+                                        epochs_list=epochs_list)
 
-    X_n_g_s2, y, scores_pvalues, times = MVPA_analysis(files,
-                                                       var1_events=['Normal/resp_Normal'],
-                                                       var2_events=['Global/resp_Abnormal'],
-                                                       excluded_events=['Rate', 'Missed'],
-                                                       scoring="roc_auc",
-                                                       output_dir=Path(output_dir,
-                                                                       'naives/post-training_hits-tnegs/normal_vs_global/'),
-                                                       indiv_plot=False,
-                                                       concat_participants=False,
-                                                       jobs=-1,
-                                                       epochs_list=epochs_list)
+    X_n_g_s2, y, times = MVPA_analysis(files,
+                                       var1_events=['Normal/resp_Normal'],
+                                       var2_events=['Global/resp_Abnormal'],
+                                       excluded_events=['Rate', 'Missed'],
+                                       scoring="roc_auc",
+                                       output_dir=Path(output_dir,
+                                                       'naives/post-training_hits-tnegs/normal_vs_global/'),
+                                       indiv_plot=False,
+                                       jobs=-1,
+                                       epochs_list=epochs_list)
 
     """
     Session Both Analysis
@@ -360,7 +343,6 @@ def run_pickle_rads():
                   scoring="roc_auc",
                   output_dir='../analyses/rads_data_pkls/normal_v_abnormal/case_balanced',
                   indiv_plot=False,
-                  concat_participants=False,
                   extra_event_labels=extra,
                   pickle_ouput=True,
                   jobs=-1)
@@ -372,21 +354,9 @@ def run_pickle_rads():
                   scoring="roc_auc",
                   output_dir='../analyses/rads_data_pkls/normal_v_global/case_imbalanced',
                   indiv_plot=False,
-                  concat_participants=False,
                   extra_event_labels=extra,
                   pickle_ouput=True,
                   jobs=-1)
-
-    MVPA_analysis(files,
-                  var1_events=['sesh_1/Obvious/resp_Abnormal'],
-                  var2_events=['sesh_2/Obvious/resp_Abnormal'],
-                  excluded_events=['Rate', 'Missed', 'ppt_6'],
-                  scoring="roc_auc",
-                  output_dir='../analyses',
-                  indiv_plot=False,
-                  concat_participants=True,
-                  extra_event_labels=extra,
-                  jobs=4)
 
 
 if '__main__' in __name__:

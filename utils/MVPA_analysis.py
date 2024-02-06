@@ -27,6 +27,7 @@ from tqdm import tqdm
 import scipy
 from scipy import stats
 from mne.stats import ttest_1samp_no_p, ttest_ind_no_p, spatio_temporal_cluster_1samp_test, spatio_temporal_cluster_test
+from collections import defaultdict
 
 
 def recode_label(event, extra_labels=None, sep='/'):
@@ -103,8 +104,8 @@ def movingaverage(y, window_length):
     @param window_length:
     @return: array of smoothed scores
     """
-    y_smooth = scipy.convolve(y, np.ones(window_length, dtype='float'), 'same') / \
-               scipy.convolve(np.ones(len(y)), np.ones(window_length), 'same')
+    y_smooth = np.convolve(y, np.ones(window_length, dtype='float'), 'same') / \
+               np.convolve(np.ones(len(y)), np.ones(window_length), 'same')
     return y_smooth
 
 
@@ -416,22 +417,23 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
 
         X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
 
-        evoked_list[var1_events].append(epochs[var1_events].average(method=average_epochs))
-        evoked_list[var2_events].append(epochs[var2_events].average(method=average_epochs))
+        evoked_list['group1'].append(epochs[var1_events].average(method=average_epochs))
+        evoked_list['group2'].append(epochs[var2_events].average(method=average_epochs))
 
         y = epochs.events[:, 2]
         times = epochs.times
 
-        # Make and save individual plots
-        plots = activity_map_plots(epochs, group1=var1_events, group2=var2_events, plot_significance=True)
-        for key, plot in plots.items():
-            if 'anim' in key:
-                plot.save(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'))
-            else:
-                plot.savefig(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'), dpi=240)
+        if indiv_plot:
+            # Make and save individual plots
+            plots = activity_map_plots(epochs, group1=var1_events, group2=var2_events, plot_significance=True)
+            for key, plot in plots.items():
+                if 'anim' in key:
+                    plot.save(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'))
+                else:
+                    plot.savefig(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'), dpi=240)
 
-            plot.clf()
-            plt.close()
+                plot.clf()
+                plt.close()
 
         # clean up epochs object to save on memory
         del epochs
@@ -493,16 +495,16 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
 
             # Make and save group plots
             plots = activity_map_plots(evoked_list, group1=var1_events, group2=var2_events, plot_significance=True)
-            # for key, plot in plots.items():
-            #     if 'anim' in key:
-            #         plot.save(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'))
-            #     else:
-            #         plot.savefig(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'), dpi=240)
-            #
-            #     plot.clf()
-            #     plt.close()
+            for key, plot in plots.items():
+                if 'anim' in key:
+                    plot.save(Path(output_dir, f'Group_{key}'))
+                else:
+                    plot.savefig(Path(output_dir, f'Group_{key}'), dpi=240)
 
-            return X, y, scores_pvalues, times
+                plot.clf()
+                plt.close()
+
+            return X, y, times
 
 
 def MVPA_group_analysis(groups, var1_events, var2_events, excluded_events=[], scoring="roc_auc", output_dir='',
@@ -525,13 +527,13 @@ def MVPA_group_analysis(groups, var1_events, var2_events, excluded_events=[], sc
     if not Path(output_dir, 'indiv.pickle').exists():
         X_list = []
         for label, group in groups.items():
-            X, y, scores_pvalues, times = MVPA_analysis(files=group,
-                                                        var1_events=var1_events,
-                                                        var2_events=var2_events,
-                                                        excluded_events=excluded_events, scoring=scoring,
-                                                        output_dir=output_dir + '/' + label,
-                                                        indiv_plot=False,
-                                                        concat_participants=False, jobs=jobs)
+            X, y, times = MVPA_analysis(files=group,
+                                        var1_events=var1_events,
+                                        var2_events=var2_events,
+                                        excluded_events=excluded_events, scoring=scoring,
+                                        output_dir=output_dir + '/' + label,
+                                        indiv_plot=False,
+                                        concat_participants=False, jobs=jobs)
             X_list.append(X)
         with open(Path(output_dir, 'indiv.pickle'), 'wb') as f:
             pickle.dump([X_list, times], f)
@@ -583,25 +585,25 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
     @param alpha: p level for filtering and mask
     @return: heatmap plot, topomap plot, animated topomap plot
     """
-    if type(epochs) is dict():
+    if type(epochs) is dict:
         # If input is a 2 key dictionary of evoked objects, get a group plot instead
-        evoked_group1 = mne.grand_average(epochs[group1])
-        evoked_group2 = mne.grand_average(epochs[group2])
+        evoked_group1 = mne.grand_average(epochs['group1'])
+        evoked_group2 = mne.grand_average(epochs['group2'])
         times = evoked_group1.times
-
-        data_group1 = np.vstack([i.get_data() for i in epochs[group1]])
-        data_group2 = np.vstack([i.get_data() for i in epochs[group2]])
-
+        ch_names = evoked_group1.ch_names
+        # combine data along first axis: participant x channels x times
+        # dstack combines 2d data along a 3rd dimension, so that axis has to be moved to the front
+        data_group1 = np.moveaxis(np.dstack([i.get_data() for i in epochs['group1']]), -1, 0)
+        data_group2 = np.moveaxis(np.dstack([i.get_data() for i in epochs['group2']]), -1, 0)
     else:
         times = epochs.times
+        ch_names = epochs.ch_names
         evoked_group1 = epochs[group1].average(method=average_epochs)
         evoked_group2 = epochs[group2].average(method=average_epochs)
-
         data_group1 = epochs[group1].get_data()
         data_group2 = epochs[group2].get_data()
 
-
-        # subtract evoked conditions
+    # subtract evoked conditions
     evoked_diff = mne.combine_evoked([evoked_group1, evoked_group2], weights=[1, -1])
     X_diff = evoked_diff.get_data()
     sig = ''
@@ -624,7 +626,7 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
         sig = f' p<{alpha}'
 
     heat, ax = plt.subplots(figsize=(10, 10))
-    plot = ax.pcolormesh(times, epochs.ch_names, X_diff, cmap='twilight', norm=TwoSlopeNorm(0))
+    plot = ax.pcolormesh(times, ch_names, X_diff, cmap='twilight', norm=TwoSlopeNorm(0))
 
     heat.colorbar(plot)
     ax.set_ylabel('channels')
@@ -804,18 +806,17 @@ def get_filepaths_from_file(analysis_file):
 
 
 if '__main__' in __name__:
-    # files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list.csv')
-    # files = files[0]
-    # print(files)
-    MVPA_analysis(files=[Path(
-        '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/AB/EEG/20220131_1255_PPT_1.epo.fif')],
-        var1_events=['S-S/lag4'],
-        var2_events=['NS-NS/lag4'],
-        excluded_events=[], scoring="roc_auc",
-        output_dir='../analyses/MVPA',
-        indiv_plot=False,
-        concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1,
-        pickle_ouput=False)
+    files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list.csv')
+    files = files[:3]
+    print(files)
+    MVPA_analysis(files=files,
+                  var1_events=['Normal'],
+                  var2_events=['Obvious', 'Subtle'],
+                  excluded_events=[], scoring="roc_auc",
+                  output_dir='../analyses/MVPA',
+                  indiv_plot=False,
+                  concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1,
+                  pickle_ouput=False)
 
     # files1, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh1.csv')
     # files2, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh2.csv')

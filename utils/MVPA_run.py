@@ -361,20 +361,20 @@ def run_pickle_rads():
 
 if '__main__' in __name__:
     # try:
-    run_AB_analysis(output_dir='../analyses/MVPA-AB/')
+    # run_AB_analysis(output_dir='../analyses/MVPA-AB/')
     # except Exception as e:
     #     print(e)
     #     print('AB analysis failed')
     #
-    # try:
-    #     run_training_analysis(output_dir='../analyses/MVPA-viking/')
-    #     run_training_hits_tnegs(output_dir='../analyses/MVPA-viking/')
-    # except Exception as e:
-    #     print(e)
-    #     print('Naives analysis failed')
-    #
-    # try:
-    #     run_rads_analysis(output_dir='../analyses/MVPA-viking/')
-    # except Exception as e:
-    #     print(e)
-    #     print('Rads analysis failed')
+    try:
+        run_training_analysis(output_dir='../analyses/MVPA-viking/')
+        run_training_hits_tnegs(output_dir='../analyses/MVPA-viking/')
+    except Exception as e:
+        print(e)
+        print('Naives analysis failed')
+
+    try:
+        run_rads_analysis(output_dir='../analyses/MVPA-viking/')
+    except Exception as e:
+        print(e)
+        print('Rads analysis failed')

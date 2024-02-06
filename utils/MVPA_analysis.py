@@ -485,12 +485,12 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
 def MVPA_group_analysis(groups, var1_events, var2_events, excluded_events=[], scoring="roc_auc", output_dir='',
                         jobs=-1):
     """
-    For doing invididual MVPA analyses and then the group permutation cluster test of those analyses
+    For doing individual MVPA analyses and comparing them with a group permutation cluster test of those analyses
 
     @param groups: a dict of group labels and epoch filepaths within those groups.
                     e.g {'session1': files1, 'session2': files2}
-    @param var1_events:
-    @param var2_events:
+    @param var1_events: event labels for analysis and plots
+    @param var2_events: event labels for analysis and plots
     @param excluded_events:
     @param scoring:
     @param output_dir:

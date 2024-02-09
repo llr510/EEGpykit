@@ -206,7 +206,7 @@ def run_rads_analysis(output_dir):
 
     MVPA_analysis(files,
                   var1_events=['Normal'],
-                  var2_events=['Obvious', 'Subtle'],
+                  var2_events=['Obvious', 'Subtle', 'Global'],
                   excluded_events=['Rate', 'Missed'],
                   scoring="roc_auc",
                   output_dir=Path(output_dir,
@@ -216,34 +216,56 @@ def run_rads_analysis(output_dir):
                   epochs_list=epochs_list)
 
     MVPA_analysis(files,
-                  var1_events=['Normal'],
-                  var2_events=['Global'],
+                  var1_events=['resp_Normal/Correct'],
+                  var2_events=['resp_Abnormal/Correct'],
                   excluded_events=['Rate', 'Missed'],
                   scoring="roc_auc",
-                  output_dir=Path(output_dir, 'radiologists/normal_vs_global/'),
+                  output_dir=Path(output_dir,
+                                  'radiologists/normal_vs_abnormal_hits-tnegs/'),
                   indiv_plot=False,
                   jobs=-1,
                   epochs_list=epochs_list)
 
-    MVPA_analysis(files,
-                  var1_events=['Normal/resp_Normal'],
-                  var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir=Path(output_dir, 'radiologists/normal_vs_abnormal_hits-tnegs/'),
-                  indiv_plot=False,
-                  jobs=-1,
-                  epochs_list=epochs_list)
+    # MVPA_analysis(files,
+    #               var1_events=['Normal'],
+    #               var2_events=['Obvious', 'Subtle'],
+    #               excluded_events=['Rate', 'Missed'],
+    #               scoring="roc_auc",
+    #               output_dir=Path(output_dir,
+    #                               'radiologists/normal_vs_malignant/'),
+    #               indiv_plot=False,
+    #               jobs=-1,
+    #               epochs_list=epochs_list)
+    #
+    # MVPA_analysis(files,
+    #               var1_events=['Normal'],
+    #               var2_events=['Global'],
+    #               excluded_events=['Rate', 'Missed'],
+    #               scoring="roc_auc",
+    #               output_dir=Path(output_dir, 'radiologists/normal_vs_global/'),
+    #               indiv_plot=False,
+    #               jobs=-1,
+    #               epochs_list=epochs_list)
 
-    MVPA_analysis(files,
-                  var1_events=['Normal/resp_Normal'],
-                  var2_events=['Global/resp_Abnormal'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir=Path(output_dir, 'radiologists/normal_vs_global_hits-tnegs/'),
-                  indiv_plot=False,
-                  jobs=-1,
-                  epochs_list=epochs_list)
+    # MVPA_analysis(files,
+    #               var1_events=['Normal/resp_Normal'],
+    #               var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
+    #               excluded_events=['Rate', 'Missed'],
+    #               scoring="roc_auc",
+    #               output_dir=Path(output_dir, 'radiologists/normal_vs_malignant_hits-tnegs/'),
+    #               indiv_plot=False,
+    #               jobs=-1,
+    #               epochs_list=epochs_list)
+    #
+    # MVPA_analysis(files,
+    #               var1_events=['Normal/resp_Normal'],
+    #               var2_events=['Global/resp_Abnormal'],
+    #               excluded_events=['Rate', 'Missed'],
+    #               scoring="roc_auc",
+    #               output_dir=Path(output_dir, 'radiologists/normal_vs_global_hits-tnegs/'),
+    #               indiv_plot=False,
+    #               jobs=-1,
+    #               epochs_list=epochs_list)
 
 
 def run_training_hits_tnegs(output_dir):
@@ -366,15 +388,15 @@ if '__main__' in __name__:
     #     print(e)
     #     print('AB analysis failed')
     #
-    try:
-        run_training_analysis(output_dir='../analyses/MVPA-viking/')
-        run_training_hits_tnegs(output_dir='../analyses/MVPA-viking/')
-    except Exception as e:
-        print(e)
-        print('Naives analysis failed')
+    # try:
+    #     run_training_analysis(output_dir='../analyses/MVPA-viking/')
+    #     run_training_hits_tnegs(output_dir='../analyses/MVPA-viking/')
+    # except Exception as e:
+    #     print(e)
+    #     print('Naives analysis failed')
 
-    try:
-        run_rads_analysis(output_dir='../analyses/MVPA-viking/')
-    except Exception as e:
-        print(e)
-        print('Rads analysis failed')
+    # try:
+    run_rads_analysis(output_dir='../analyses/MVPA-viking/')
+    # except Exception as e:
+    #     print(e)
+    #     print('Rads analysis failed')

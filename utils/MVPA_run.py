@@ -165,7 +165,7 @@ def run_training_analysis(output_dir, jobs=-1, indiv_plot=True):
     X_dict['NormAbnorm_s2'], \
     y, times = MVPA_analysis(files,
                              var1_events=['Normal'],
-                             var2_events=['Obvious', 'Subtle'],
+                             var2_events=['Obvious', 'Subtle', 'Global'],
                              excluded_events=['Rate', 'Missed'],
                              scoring="roc_auc",
                              output_dir=Path(output_dir,
@@ -448,5 +448,5 @@ def run_pickle_rads(jobs=-1):
 if '__main__' in __name__:
     # run_AB_analysis(output_dir='../analyses/MVPA-AB/')
     run_training_analysis(output_dir='../analyses/MVPA-viking/')
-    run_training_hits_tnegs(output_dir='../analyses/MVPA-viking/')
+    # run_training_hits_tnegs(output_dir='../analyses/MVPA-viking/')
     # run_rads_analysis(output_dir='../analyses/MVPA-viking/')

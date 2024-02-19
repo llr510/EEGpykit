@@ -1,33 +1,17 @@
 import pickle
 from pathlib import Path
-import numpy as np
+
 import matplotlib.pyplot as plt
-import sklearn.preprocessing
-from matplotlib.colors import TwoSlopeNorm
+import mne
+import numpy as np
 import pandas as pd
+from matplotlib.colors import TwoSlopeNorm
+from mne.decoding import SlidingEstimator, cross_val_multiscore
+from mne.stats import ttest_1samp_no_p, ttest_ind_no_p, spatio_temporal_cluster_1samp_test, spatio_temporal_cluster_test
+from scipy import stats
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
-from math import floor, ceil
-import mne
-from mne.datasets import sample
-from mne.decoding import (
-    SlidingEstimator,
-    GeneralizingEstimator,
-    Scaler,
-    cross_val_multiscore,
-    LinearModel,
-    get_coef,
-    Vectorizer,
-    CSP,
-)
-from random import shuffle
-from tqdm import tqdm
-import scipy
-from scipy import stats
-from mne.stats import ttest_1samp_no_p, ttest_ind_no_p, spatio_temporal_cluster_1samp_test, spatio_temporal_cluster_test
-from collections import defaultdict
 
 
 def recode_label(event, extra_labels=None, sep='/'):

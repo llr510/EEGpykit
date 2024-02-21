@@ -377,7 +377,7 @@ def run_training_hits_tnegs(output_dir, jobs=-1, indiv_plot=True):
                              excluded_events=['Rate', 'Missed'],
                              scoring="roc_auc",
                              output_dir=Path(output_dir,
-                                             'naives/post-training_hits-tnegs/normal_vs_abnormal/'),
+                                             'naives/post-training_hits-tnegs/normal_vs_malignant/'),
                              indiv_plot=indiv_plot,
                              jobs=jobs,
                              epochs_list=epochs_list)
@@ -447,6 +447,6 @@ def run_pickle_rads(jobs=-1):
 
 if '__main__' in __name__:
     # run_AB_analysis(output_dir='../analyses/MVPA-AB/')
-    run_training_analysis(output_dir='../analyses/MVPA-viking/')
-    # run_training_hits_tnegs(output_dir='../analyses/MVPA-viking/')
+    run_training_analysis(output_dir='../analyses/MVPA-viking/', indiv_plot=False)
+    run_training_hits_tnegs(output_dir='../analyses/MVPA-viking/', indiv_plot=False)
     # run_rads_analysis(output_dir='../analyses/MVPA-viking/')

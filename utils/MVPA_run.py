@@ -3,11 +3,13 @@ from pathlib import Path
 import matplotlib
 import matplotlib.pyplot as plt
 import mne
+import numpy as np
 
 from MVPA_analysis import MVPA_analysis, get_filepaths_from_file, group_MVPA_and_plot
 
 matplotlib.use('Agg')
 plt.rcParams['animation.ffmpeg_path'] = '/users/llr510/.local/share/ffmpeg-downloader/ffmpeg'
+np.random.seed(1025)
 
 
 def run_AB_analysis(output_dir, jobs=-1, indiv_plot=True):
@@ -105,6 +107,43 @@ def run_training_analysis(output_dir, jobs=-1, indiv_plot=True):
     """
     Individual, group, and session level analysis for mammography training experiment
     """
+
+    files, extra = get_filepaths_from_file(Path(output_dir, 'MVPA_analysis_list.csv'))
+
+    epochs_list = []
+    for file in files:
+        epochs = mne.read_epochs(file)
+        epochs_list.append(epochs)
+
+    MVPA_analysis(files,
+                  var1_events=['sesh_1'],
+                  var2_events=['sesh_2'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir=Path(output_dir,
+                                  'naives/across-session/all/'),
+                  indiv_plot=indiv_plot,
+                  jobs=jobs,
+                  epochs_list=epochs_list,
+                  concat_participants=True
+                  )
+
+    MVPA_analysis(files,
+                  var1_events=['sesh_1/obvious'],
+                  var2_events=['sesh_2/obvious'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir=Path(output_dir,
+                                  'naives/across-session/all/'),
+                  indiv_plot=indiv_plot,
+                  jobs=jobs,
+                  epochs_list=epochs_list,
+                  concat_participants=True
+                  )
+
+
+
+
     X_dict = {}
     """
     Session 1 Analysis
@@ -301,7 +340,6 @@ def run_training_hits_tnegs(output_dir, jobs=-1, indiv_plot=True):
     """
 
     X_dict = {}
-
     """
     Session 1 Analysis
     """
@@ -447,6 +485,8 @@ def run_pickle_rads(jobs=-1):
 
 if '__main__' in __name__:
     # run_AB_analysis(output_dir='../analyses/MVPA-AB/')
-    run_training_analysis(output_dir='../analyses/MVPA-viking/', indiv_plot=False)
-    run_training_hits_tnegs(output_dir='../analyses/MVPA-viking/', indiv_plot=False)
+    # run_training_analysis(output_dir='../analyses/MVPA-viking/', indiv_plot=False)
+    # run_training_hits_tnegs(output_dir='../analyses/MVPA-viking/', indiv_plot=False)
     # run_rads_analysis(output_dir='../analyses/MVPA-viking/')
+
+    run_training_analysis(output_dir='../analyses/MVPA/', indiv_plot=False)

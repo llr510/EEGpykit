@@ -9,9 +9,11 @@ from matplotlib.colors import TwoSlopeNorm
 from mne.decoding import SlidingEstimator, cross_val_multiscore
 from mne.stats import ttest_1samp_no_p, ttest_ind_no_p, spatio_temporal_cluster_1samp_test, spatio_temporal_cluster_test
 from scipy import stats
+from scipy.stats import ttest_1samp
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
+from statsmodels.stats.multitest import multipletests
 
 
 def recode_label(event, extra_labels=None, sep='/'):
@@ -59,7 +61,7 @@ def len_match_arrays(X, y, sanity_check=False):
     return X, y
 
 
-def plot_svm_scores(times, scores, scoring="roc_auc", title='', p_values=None):
+def plot_svm_scores(times, scores, scoring="roc_auc", title='', filename='scores.png'):
     """
     Make a basic line plot of SVM accuracy
 
@@ -77,6 +79,8 @@ def plot_svm_scores(times, scores, scoring="roc_auc", title='', p_values=None):
     ax.legend()
     ax.axvline(0.0, color="k", linestyle="-")
     ax.set_title(title)
+    plt.savefig(filename, dpi=150)
+    plt.close()
 
 
 def movingaverage(y, window_length):
@@ -93,7 +97,7 @@ def movingaverage(y, window_length):
     return y_smooth
 
 
-def temporal_decoding_with_smoothing(times, x_data, y, filename, plotting=False, scoring="roc_auc", jobs=-1):
+def temporal_decoding_with_smoothing(x_data, y, scoring="roc_auc", jobs=-1):
     """
     https://mne.tools/stable/auto_tutorials/machine-learning/50_decoding.html
 
@@ -109,46 +113,27 @@ def temporal_decoding_with_smoothing(times, x_data, y, filename, plotting=False,
     When working with linear models as estimators, this approach boils down to estimating a discriminative spatial
     filter for each time instant.
 
-    @param times:
-    @param plotting: whether to plot or not
     @param scoring: what sklearn scoring measure to use. See sklearn.metrics.get_scorer_names() for options
     @param x_data: 3d array of n_epochs, n_meg_channels, n_times
     @param y: array of epoch events
-    @param filename: plot filename for saving
     @param jobs: number of processor cores to use (-1 uses maximum). Smaller number uses less RAM but takes longer.
     @return scores: array of SVM accuracy scores
 
     Original: https://github.com/SridharJagannathan/decAlertnessDecisionmaking_JNeuroscience2021/blob/main/Scripts/notebooks/Figure6_temporaldecodingresponses.ipynb
     """
-    # make an estimator with scaling each channel by across its time pts and epochs..
-    clf = make_pipeline(StandardScaler(), SVC(kernel='rbf'))
-    # Sliding estimator with classification made across each time pt by training with the same time pt..
+    # make an estimator with scaling each channel by across its time pts and epochs.
+    clf = make_pipeline(StandardScaler(), SVC(kernel='rbf', class_weight='balanced'))
+    # Sliding estimator with classification made across each time pt by training with the same time pt.
     time_decod = SlidingEstimator(clf, n_jobs=jobs, scoring=scoring, verbose=False)
-
-    # compute the cross validation score..
+    # compute the cross validation score.
     scores = cross_val_multiscore(time_decod, x_data, y, cv=5, n_jobs=jobs)
-    # Mean scores across cross-validation splits..
+    # Mean scores across cross-validation splits.
     score = np.mean(scores, axis=0)
-    # smooth datapoints to ensure no discontinuities..
+    # smooth datapoints to ensure no discontinuities.
     score = movingaverage(score, 10)
 
     # time_decod.fit(x_data, y)
     # coef = get_coef(time_decod, 'patterns_', inverse_transform=True)
-
-    plot_svm_scores(times, score, scoring, Path(filename).stem)
-    plt.savefig(filename, dpi=150)
-    plt.close()
-
-    # if plotting:
-    #     plt.show(block=True)
-
-    # # store the evoked patterns that are more neurophysiologically interpretable..
-    # evoked = mne.EvokedArray(coef, X.info, tmin=X.times[0])
-    # fpath = outputfolder + "s_" + subj_id + "_" + cond_str + "_scores"
-    # with open(fpath, 'wb') as f:
-    #     pickle.dump([score, epoch_clean.times], f)
-    # fname = outputfolder + "s_" + subj_id + "_" + cond_str + "_evoked-ave.fif"
-    # evoked.save(fname)
 
     return score
 
@@ -185,12 +170,12 @@ def cluster_stats_1samp(X, n_jobs=-1):
     X = X[:, :, None] if X.ndim == 2 else X
     # this functions gets the t-values and performs a cluster permutation test on them to determine p-values..
     p_threshold = 0.05
-    t_threshold = -stats.distributions.t.ppf(p_threshold / 2., n_subjects - 1)
+    t_threshold = -stats.distributions.t.ppf(p_threshold / 2, n_subjects - 1)
     print('number of subjects:', n_subjects)
     print('t-threshold is:', t_threshold)
     print('p-threshold is:', p_threshold)
     T_obs_, clusters, p_values, _ = spatio_temporal_cluster_1samp_test(
-        X, out_type='mask', stat_fun=_stat_fun_1samp, n_permutations=2 ** 12, seed=1234,
+        X, out_type='mask', stat_fun=_stat_fun_1samp, n_permutations=2 ** 3, seed=1234,
         n_jobs=n_jobs, threshold=t_threshold)
     p_values_ = np.ones_like(X[0]).T
     # rearrange the p-value per cluster..
@@ -247,7 +232,11 @@ def cluster_stats_2samp(X_list, n_jobs=-1):
     return np.squeeze(p_values_).T
 
 
-def test_data_mvpa():
+def test_data_mvpa(scoring="roc_auc",
+                   var1_events=['auditory'],
+                   var2_events=['visual'],
+                   excluded_events=['buttonpress'],
+                   indiv_plot=False):
     """
     Loads some MNE test data, preprocesses it and runs an MVPA analysis on it
     """
@@ -279,12 +268,6 @@ def test_data_mvpa():
                                                                                       report=None)
         epochs.save(filename)
 
-    scoring = "roc_auc"
-    var1_events = ['auditory']
-    var2_events = ['visual']
-    excluded_events = ['buttonpress']
-    indiv_plot = False
-
     epochs.pick_types(eeg=True, exclude="bads")
 
     if indiv_plot:
@@ -310,185 +293,16 @@ def test_data_mvpa():
             plot.savefig(f'../analyses/mne_test_data_{key}', dpi=240)
         plot.clf()
         plt.close()
-    quit()
 
     X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
     y = epochs.events[:, 2]
     y[np.argwhere(np.isin(y, var1)).ravel()] = 0
     y[np.argwhere(np.isin(y, var2)).ravel()] = 1
-    X, y = len_match_arrays(X, y)
+    # X, y = len_match_arrays(X, y)
     print(X.shape, y.shape)
-    temporal_decoding_with_smoothing(epochs.times, X, y, filename=f'../analyses/temporal_decode_test_data.png',
-                                     plotting=indiv_plot, scoring=scoring)
-
-
-def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="roc_auc", output_dir='',
-                  indiv_plot=False, concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1,
-                  pickle_ouput=False):
-    """
-    Performs MVPA analysis over multiple participants.
-    If you want to compare across multiple sessions concat_participants must be true
-
-    @param output_dir: output directory for figures
-    @param concat_participants: if true concatenate all epochs and run MVPA on that instead of individuals
-    @param files: iterable or list of .epo.fif filepaths
-    @param var1_events: list of event conditions for MVPA comparison
-    @param var2_events: list of event conditions for MVPA comparison
-    @param excluded_events: list of events to exclude from analysis
-    @param scoring: scoring method for estimator. e.g: 'accuracy', 'roc_auc
-    @param indiv_plot: whether to plot individual data
-    @param epochs_list: If epochs are already loaded, use this instead of files
-    @param extra_event_labels: list of lists
-    @param jobs: number of processor cores to use (-1 uses maximum). Smaller number uses less RAM but takes longer.
-    """
-
-    scores_list = []
-    evoked_list = {'group1': [], 'group2': []}
-    X_list = []
-    y_list = []
-
-    if not Path(output_dir).exists():
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-
-    for n, file in enumerate(files):
-        if epochs_list:
-            epochs = epochs_list[n]
-        else:
-            epochs = mne.read_epochs(file)
-        epochs.pick_types(eeg=True, exclude="bads")
-
-        if indiv_plot:
-            evoked = epochs.average(method='mean')
-            evoked.plot()
-
-        if extra_event_labels:
-            extra_labels = extra_event_labels[n]
-            epochs.event_id = {recode_label(k, extra_labels): v for k, v in epochs.event_id.items()}
-
-        try:
-            var1 = list(epochs[var1_events].event_id.values())
-        except KeyError:
-            var1 = []
-        try:
-            var2 = list(epochs[var2_events].event_id.values())
-        except KeyError:
-            var2 = []
-
-        epochs = epochs[var1_events + var2_events]
-
-        if len(excluded_events) > 0:
-            try:
-                to_drop = list(epochs[excluded_events].event_id.values())
-                epochs.drop([True if x in to_drop else False for x in list(epochs.events[:, 2])])
-            except KeyError:
-                pass
-
-        # Sort channels in row-major snakelike ordering
-        sorted_ch_names = ['Fp1', 'Fpz', 'Fp2',
-                           'AF8', 'AF4', 'AF3', 'AF7',
-                           'F7', 'F5', 'F3', 'F1', 'Fz', 'F2', 'F4', 'F6', 'F8',
-                           'FT8', 'FC6', 'FC4', 'FC2', 'FCz', 'FC1', 'FC3', 'FC5', 'FT7',
-                           'T7', 'C5', 'C3', 'C1', 'Cz', 'C2', 'C4', 'C6', 'T8', 'M2',
-                           'TP8', 'CP6', 'CP4', 'CP2', 'CPz', 'CP1', 'CP3', 'CP5', 'TP7', 'M1',
-                           'P7', 'P5', 'P3', 'P1', 'Pz', 'P2', 'P4', 'P6', 'P8',
-                           'PO8', 'PO6', 'PO4', 'POz', 'PO3', 'PO5', 'PO7',
-                           'O1', 'Oz', 'O2']
-        new_channel_order = [x for x in sorted_ch_names if x in epochs.ch_names]
-        if len(new_channel_order) == len(epochs.ch_names):
-            epochs.reorder_channels(new_channel_order)
-        else:
-            print('Mismatch between sorted channel names and epochs channels names. Sorting not applied.')
-
-        X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
-
-        evoked_list['group1'].append(epochs[var1_events].average(method=average_epochs))
-        evoked_list['group2'].append(epochs[var2_events].average(method=average_epochs))
-
-        y = epochs.events[:, 2]
-        times = epochs.times
-
-        if indiv_plot:
-            # Make and save individual plots
-            plots = activity_map_plots(epochs, group1=var1_events, group2=var2_events, plot_significance=True)
-            for key, plot in plots.items():
-                if 'anim' in key:
-                    plot.save(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'))
-                else:
-                    plot.savefig(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'), dpi=240)
-
-                plot.clf()
-                plt.close()
-
-        # clean up epochs object to save on memory
-        del epochs
-        y[np.argwhere(np.isin(y, var1)).ravel()] = 0
-        y[np.argwhere(np.isin(y, var2)).ravel()] = 1
-
-        if pickle_ouput:
-            # X, y = len_match_arrays(X, y)
-            d = {'data': X, 'label': y, 'key': {0: "normal", 1: "global"}}
-            with open(Path(output_dir, f'{Path(file).with_suffix("").stem}.pkl'), 'wb') as f:
-                pickle.dump(d, f)
-
-        elif concat_participants:
-            X_list.append(X)
-            y_list.append(y)
-        else:
-            X, y = len_match_arrays(X, y)
-            scores = temporal_decoding_with_smoothing(times, X, y,
-                                                      filename=Path(output_dir,
-                                                                    f'temp_decod_{Path(file).with_suffix("").stem}.png'),
-                                                      plotting=indiv_plot, scoring=scoring, jobs=jobs)
-            scores_list.append(scores)
-
-    # Do group analysis plots
-    if not pickle_ouput:
-        if concat_participants:
-            X = np.concatenate(X_list, axis=0)
-            y = np.concatenate(y_list, axis=0)
-            X, y = len_match_arrays(X, y)
-            print(X.shape)
-            print(np.array(np.unique(y, return_counts=True)))
-            scores = temporal_decoding_with_smoothing(times, X, y,
-                                                      filename=Path(output_dir,
-                                                                    f"group_{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png".replace(
-                                                                        '/', '+')),
-                                                      plotting=indiv_plot, scoring=scoring, jobs=jobs)
-            all_data = pd.DataFrame([scores], columns=times)
-            all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
-        else:
-            X = np.vstack(scores_list)
-
-            chance = .5
-            scores_pvalues = cluster_stats_1samp(X - chance, n_jobs=jobs)
-
-            all_data = pd.DataFrame(scores_list, columns=times)
-            info = pd.DataFrame(extra_event_labels, columns=['ppt_num', 'sesh_num'])
-            all_data = pd.concat([info, all_data], axis=1)
-            all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
-
-            # Better plot with significance
-            funcreturn, _ = decodingplot(scores_cond=X, p_values_cond=scores_pvalues, times=times,
-                                         alpha=0.05, color='r', tmin=times[0], tmax=times[-1])
-            funcreturn.axes.set_title(f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
-            funcreturn.axes.set_ylim(0.45, 0.75)
-            funcreturn.axes.set_xlabel('Time (sec)')
-            funcreturn.axes.set_ylabel('AUC')
-            plt.savefig(Path(output_dir, "Group_Sensor-space-decoding_plot.png"), dpi=240)
-            plt.close()
-
-            # Make and save group plots
-            plots = activity_map_plots(evoked_list, group1=var1_events, group2=var2_events, plot_significance=True)
-            for key, plot in plots.items():
-                if 'anim' in key:
-                    plot.save(Path(output_dir, f'Group_{key}'))
-                else:
-                    plot.savefig(Path(output_dir, f'Group_{key}'), dpi=240)
-
-                plot.clf()
-                plt.close()
-
-            return X, y, times
+    score = temporal_decoding_with_smoothing(X, y, scoring=scoring)
+    filename = Path('../analyses/temporal_decode_test_data.png')
+    plot_svm_scores(epochs.times, score, scoring, title=filename.stem, filename=filename)
 
 
 def MVPA_group_analysis(groups, var1_events, var2_events, excluded_events=[], scoring="roc_auc", output_dir='',
@@ -525,10 +339,10 @@ def MVPA_group_analysis(groups, var1_events, var2_events, excluded_events=[], sc
         with open(Path(output_dir, 'indiv.pickle'), 'rb') as f:
             X_list, times = pickle.load(f)
 
-    group_MVPA_and_plot(X_list, list(groups.keys()), var1_events, var2_events, times, output_dir, jobs)
+    group_MVPA_and_plot(X_list, list(groups.keys()), var1_events, var2_events, times, output_dir, scoring, jobs)
 
 
-def group_MVPA_and_plot(X_list, labels, var1_events, var2_events, times, output_dir='', jobs=-1):
+def group_MVPA_and_plot(X_list, labels, var1_events, var2_events, times, output_dir='', scoring='roc_auc', jobs=-1):
     group_pvalues = cluster_stats_2samp(X_list, jobs)
     # Better plot with significance
     funcreturn, _ = decodingplot_group(scores_cond_group=X_list, p_values_cond=group_pvalues, times=times,
@@ -536,7 +350,7 @@ def group_MVPA_and_plot(X_list, labels, var1_events, var2_events, times, output_
     funcreturn.axes.set_title(f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
     funcreturn.axes.set_ylim(0.45, 0.75)
     funcreturn.axes.set_xlabel('Time (sec)')
-    funcreturn.axes.set_ylabel('AUC')
+    funcreturn.axes.set_ylabel(scoring)
 
     if not Path(output_dir).exists():
         Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -638,7 +452,7 @@ def decodingplot(scores_cond, p_values_cond, times, alpha=0.05, color='r', tmin=
 
     scores_m = np.nanmean(scores, axis=0)
     n = len(scores)
-    n -= sum(np.isnan(np.mean(scores, axis=1)))  # identify the nan subjs and remove them..
+    n -= sum(np.isnan(np.mean(scores, axis=1)))  # identify the nan subjs and remove them.
     sem = np.nanstd(scores, axis=0) / np.sqrt(n)
 
     fig, ax1 = plt.subplots(nrows=1, figsize=[20, 4])
@@ -789,15 +603,212 @@ def get_filepaths_from_file(analysis_file):
     return files, extra
 
 
+def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="roc_auc", output_dir='',
+                  indiv_plot=False, concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1,
+                  pickle_ouput=False):
+    """
+    Performs MVPA analysis over multiple participants.
+    If you want to compare across multiple sessions concat_participants must be true
+
+    @param output_dir: output directory for figures
+    @param concat_participants: if true concatenate all epochs and run MVPA on that instead of individuals
+    @param files: iterable or list of .epo.fif filepaths
+    @param var1_events: list of event conditions for MVPA comparison
+    @param var2_events: list of event conditions for MVPA comparison
+    @param excluded_events: list of events to exclude from analysis
+    @param scoring: scoring method for estimator. e.g: 'accuracy', 'roc_auc
+    @param indiv_plot: whether to plot individual data
+    @param epochs_list: If epochs are already loaded, use this instead of files
+    @param extra_event_labels: list of lists
+    @param jobs: number of processor cores to use (-1 uses maximum). Smaller number uses less RAM but takes longer.
+    """
+
+    scores_list = []
+    evoked_list = {'group1': [], 'group2': []}
+    X_list = []
+    y_list = []
+
+    fname_string = f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}".replace('/', '+')
+    saved_classifier = Path(output_dir, fname_string).with_suffix('.dat')
+
+    if not Path(output_dir).exists():
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    if saved_classifier.exists():
+        with open(saved_classifier, 'rb') as f:
+            X, times, evoked_list = pickle.load(f)
+    else:
+        for n, file in enumerate(files):
+            if epochs_list:
+                epochs = epochs_list[n]
+            else:
+                epochs = mne.read_epochs(file)
+            epochs.pick_types(eeg=True, exclude="bads")
+
+            if indiv_plot:
+                evoked = epochs.average(method='mean')
+                evoked.plot()
+
+            if extra_event_labels:
+                extra_labels = extra_event_labels[n]
+                epochs.event_id = {recode_label(k, extra_labels): v for k, v in epochs.event_id.items()}
+
+            try:
+                var1 = list(epochs[var1_events].event_id.values())
+            except KeyError:
+                var1 = []
+            try:
+                var2 = list(epochs[var2_events].event_id.values())
+            except KeyError:
+                var2 = []
+
+            epochs = epochs[var1_events + var2_events]
+
+            if len(excluded_events) > 0:
+                try:
+                    to_drop = list(epochs[excluded_events].event_id.values())
+                    epochs.drop([True if x in to_drop else False for x in list(epochs.events[:, 2])])
+                except KeyError:
+                    pass
+
+            # Sort channels in row-major snakelike ordering
+            sorted_ch_names = ['Fp1', 'Fpz', 'Fp2',
+                               'AF8', 'AF4', 'AF3', 'AF7',
+                               'F7', 'F5', 'F3', 'F1', 'Fz', 'F2', 'F4', 'F6', 'F8',
+                               'FT8', 'FC6', 'FC4', 'FC2', 'FCz', 'FC1', 'FC3', 'FC5', 'FT7',
+                               'T7', 'C5', 'C3', 'C1', 'Cz', 'C2', 'C4', 'C6', 'T8', 'M2',
+                               'TP8', 'CP6', 'CP4', 'CP2', 'CPz', 'CP1', 'CP3', 'CP5', 'TP7', 'M1',
+                               'P7', 'P5', 'P3', 'P1', 'Pz', 'P2', 'P4', 'P6', 'P8',
+                               'PO8', 'PO6', 'PO4', 'POz', 'PO3', 'PO5', 'PO7',
+                               'O1', 'Oz', 'O2']
+            new_channel_order = [x for x in sorted_ch_names if x in epochs.ch_names]
+            if len(new_channel_order) == len(epochs.ch_names):
+                epochs.reorder_channels(new_channel_order)
+            else:
+                print('Mismatch between sorted channel names and epochs channels names. Sorting not applied.')
+
+            X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
+
+            evoked_list['group1'].append(epochs[var1_events].average(method=average_epochs))
+            evoked_list['group2'].append(epochs[var2_events].average(method=average_epochs))
+
+            y = epochs.events[:, 2]
+            times = epochs.times
+
+            if indiv_plot:
+                # Make and save individual plots
+                plots = activity_map_plots(epochs, group1=var1_events, group2=var2_events, plot_significance=True)
+                for key, plot in plots.items():
+                    if 'anim' in key:
+                        plot.save(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'))
+                    else:
+                        plot.savefig(Path(output_dir, f'{Path(file).with_suffix("").stem}_{key}'), dpi=240)
+
+                    plot.clf()
+                    plt.close()
+
+            # clean up epochs object to save on memory
+            del epochs
+            y[np.argwhere(np.isin(y, var1)).ravel()] = 0
+            y[np.argwhere(np.isin(y, var2)).ravel()] = 1
+
+            if pickle_ouput:
+                # X, y = len_match_arrays(X, y)
+                d = {'data': X, 'label': y, 'key': {0: "normal", 1: "global"}}
+                with open(Path(output_dir, f'{Path(file).with_suffix("").stem}.pkl'), 'wb') as f:
+                    pickle.dump(d, f)
+                return X, y, times, evoked_list
+
+            elif concat_participants:
+                X_list.append(X)
+                y_list.append(y)
+            else:
+                # X, y = len_match_arrays(X, y)
+                filename = Path(output_dir, f'temp_decod_{Path(file).with_suffix("").stem}.png')
+                scores = temporal_decoding_with_smoothing(X, y, scoring=scoring, jobs=jobs)
+                plot_svm_scores(times, scores, scoring, title=filename.stem, filename=filename)
+                scores_list.append(scores)
+
+        # Do group analysis plots
+        if concat_participants:
+            X = np.concatenate(X_list, axis=0)
+            y = np.concatenate(y_list, axis=0)
+            # X, y = len_match_arrays(X, y)
+            print(X.shape)
+            print(np.array(np.unique(y, return_counts=True)))
+            filename = Path(output_dir,
+                            f"group_{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png".replace('/', '+'))
+            scores = temporal_decoding_with_smoothing(X, y, scoring=scoring, jobs=jobs)
+            plot_svm_scores(times, scores, scoring, title=filename.stem, filename=filename)
+            all_data = pd.DataFrame([scores], columns=times)
+            all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
+        else:
+            X = np.vstack(scores_list)
+
+            try:
+                with open(Path(output_dir, fname_string).with_suffix('.dat'), 'wb') as file:
+                    pickle.dump((X, times, evoked_list), file)
+            except Exception as e:
+                print("Failed to save.")
+                print(e)
+
+    if not concat_participants:
+        res = ttest_1samp(X, popmean=0.5, axis=0)
+        pvalues = res[1]
+        alpha = 0.05
+        # alpha = 0.05 / 481
+
+        # print('Uncorrected sig:', np.sum(pvalues < 0.05))
+        # print('Corrected sig:', np.sum(pvalues < alpha))
+
+        reject, pvalues, _, corrected_alpha = multipletests(pvals=pvalues, alpha=alpha, method='sidak')
+        print('sig:', np.sum(pvalues < alpha))
+
+        ## Cluster stats
+        # chance = .5
+        # scores_pvalues = cluster_stats_1samp(X - chance, n_jobs=jobs)
+
+        ## Save out data file
+        # all_data = pd.DataFrame(scores_list, columns=times)
+        # info = pd.DataFrame(extra_event_labels, columns=['ppt_num', 'sesh_num'])
+        # all_data = pd.concat([info, all_data], axis=1)
+        # all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
+
+        # Better plot with significance
+        funcreturn, _ = decodingplot(scores_cond=X, p_values_cond=pvalues, times=times,
+                                     alpha=alpha, color='r', tmin=times[0], tmax=times[-1])
+        funcreturn.axes.set_title(f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
+        funcreturn.axes.set_ylim(0.45, 0.75)
+        funcreturn.axes.set_xlabel('Time (sec)')
+        funcreturn.axes.set_ylabel(scoring)
+        plt.savefig(Path(output_dir, 'group' + '_' + fname_string).with_suffix('.png'), dpi=240)
+        plt.close()
+
+        # Make and save group plots
+        plots = activity_map_plots(evoked_list, group1=var1_events, group2=var2_events, plot_significance=True)
+        for key, plot in plots.items():
+            if 'anim' in key:
+                plot.save(Path(output_dir, f'Group_{key}'))
+            else:
+                plot.savefig(Path(output_dir, f'Group_{key}'), dpi=240)
+
+            plot.clf()
+            plt.close()
+
+        return X, y, times
+
+
 if '__main__' in __name__:
-    files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list.csv')
-    files = files[:3]
+    np.random.seed(1025)
+
+    files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_rads.csv')
+    # files = files[:3]
     print(files)
     MVPA_analysis(files=files,
-                  var1_events=['Normal'],
-                  var2_events=['Obvious', 'Subtle'],
+                  var1_events=['Normal/Correct'],
+                  var2_events=['Obvious/Correct', 'Subtle/Correct'],
                   excluded_events=[], scoring="roc_auc",
-                  output_dir='../analyses/MVPA',
+                  output_dir='../analyses/MVPA/rads',
                   indiv_plot=False,
                   concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1,
                   pickle_ouput=False)

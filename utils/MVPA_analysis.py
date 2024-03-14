@@ -12,6 +12,7 @@ from scipy import stats
 from scipy.stats import ttest_1samp
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.svm import SVC
 from statsmodels.stats.multitest import multipletests
 
@@ -97,7 +98,7 @@ def movingaverage(y, window_length):
     return y_smooth
 
 
-def temporal_decoding_with_smoothing(x_data, y, scoring="roc_auc", jobs=-1):
+def temporal_decoding_with_smoothing(x_data, y, scoring="roc_auc", groups=[], jobs=-1):
     """
     https://mne.tools/stable/auto_tutorials/machine-learning/50_decoding.html
 
@@ -126,15 +127,19 @@ def temporal_decoding_with_smoothing(x_data, y, scoring="roc_auc", jobs=-1):
     # Sliding estimator with classification made across each time pt by training with the same time pt.
     time_decod = SlidingEstimator(clf, n_jobs=jobs, scoring=scoring, verbose=False)
     # compute the cross validation score.
-    scores = cross_val_multiscore(time_decod, x_data, y, cv=5, n_jobs=jobs)
+
+    if any(groups):
+        logo = LeaveOneGroupOut()
+        x_mem = np.memmap('x_temp.dat', dtype='float32', mode='w+', shape=x_data.shape)
+        x_mem[:] = x_data[:]
+        x_mem.flush()
+        scores = cross_val_multiscore(time_decod, x_mem, y, cv=logo, groups=groups, n_jobs=jobs)
+    else:
+        scores = cross_val_multiscore(time_decod, x_data, y, cv=5, n_jobs=jobs)
     # Mean scores across cross-validation splits.
     score = np.mean(scores, axis=0)
     # smooth datapoints to ensure no discontinuities.
     score = movingaverage(score, 10)
-
-    # time_decod.fit(x_data, y)
-    # coef = get_coef(time_decod, 'patterns_', inverse_transform=True)
-
     return score
 
 
@@ -437,7 +442,6 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
         # blit=False, time_unit='s')  # , mask=mask, mask_params=mask_params)
     else:
         topo = evoked_diff.plot_topomap(times="auto", ch_type="eeg", show=True)
-
         # fig, anim = evoked_diff.animate_topomap(times=epochs.times, ch_type="eeg", frame_rate=12, show=False,
         #                                         blit=False,
         #                                         time_unit='s')  # , mask=mask, mask_params=mask_params)
@@ -447,23 +451,25 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
 
 
 def decodingplot(scores_cond, p_values_cond, times, alpha=0.05, color='r', tmin=-0.8, tmax=0.3):
-    scores = np.array(scores_cond)
-    sig = p_values_cond < alpha
-
-    scores_m = np.nanmean(scores, axis=0)
-    n = len(scores)
-    n -= sum(np.isnan(np.mean(scores, axis=1)))  # identify the nan subjs and remove them.
-    sem = np.nanstd(scores, axis=0) / np.sqrt(n)
-
     fig, ax1 = plt.subplots(nrows=1, figsize=[20, 4])
 
-    ax1.plot(times, scores_m, 'k', linewidth=1, )
-    ax1.fill_between(times, scores_m - sem, scores_m + sem, color=color, alpha=0.3)
+    if type(scores_cond) is not np.ndarray:
+        scores = np.array(scores_cond)
+        scores_m = np.nanmean(scores, axis=0)
+        n = len(scores)
+        n -= sum(np.isnan(np.mean(scores, axis=1)))  # identify the nan subjs and remove them.
+        sem = np.nanstd(scores, axis=0) / np.sqrt(n)
+        ax1.fill_between(times, scores_m - sem, scores_m + sem, color=color, alpha=0.3)
+    else:
+        scores_m = scores_cond
+
+    sig = p_values_cond < alpha
+
+    ax1.plot(times, scores_m, 'k', linewidth=1)
 
     split_ydata = scores_m
     split_ydata[~sig] = np.nan
-
-    # shade the significant regions..
+    # shade the significant regions.
     ax1.plot(times, split_ydata, color='k', linewidth=3)
     ax1.fill_between(times, y1=split_ydata, y2=0.5, alpha=0.7, facecolor=color)
 
@@ -481,7 +487,6 @@ def decodingplot(scores_cond, p_values_cond, times, alpha=0.05, color='r', tmin=
     timeintervals = timeintervals.round(decimals=2)
 
     ax1.set_xticks(timeintervals)
-    # ax1.axes.xaxis.set_ticklabels([])
 
     for patch in ax1.artists:
         r, g, b, a = patch.get_facecolor()
@@ -627,7 +632,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
     evoked_list = {'group1': [], 'group2': []}
     X_list = []
     y_list = []
-
+    groups = []
     fname_string = f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}".replace('/', '+')
     saved_classifier = Path(output_dir, fname_string).with_suffix('.dat')
 
@@ -636,7 +641,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
 
     if saved_classifier.exists():
         with open(saved_classifier, 'rb') as f:
-            X, times, evoked_list = pickle.load(f)
+            X, y, times, evoked_list = pickle.load(f)
     else:
         for n, file in enumerate(files):
             if epochs_list:
@@ -689,8 +694,22 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
 
             X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
 
-            evoked_list['group1'].append(epochs[var1_events].average(method=average_epochs))
-            evoked_list['group2'].append(epochs[var2_events].average(method=average_epochs))
+            events = list(epochs.event_id.keys())
+            events = [e.split('/') for e in events]
+            ppt_id = [i for i in events[0] if 'ppt' in i]
+            assert len(ppt_id) == 1
+
+            group_id = ppt_id * X.shape[0]
+            groups.append(group_id)
+
+            try:
+                evoked_list['group1'].append(epochs[var1_events].average(method=average_epochs))
+            except KeyError:
+                pass
+            try:
+                evoked_list['group2'].append(epochs[var2_events].average(method=average_epochs))
+            except KeyError:
+                pass
 
             y = epochs.events[:, 2]
             times = epochs.times
@@ -718,12 +737,10 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
                 with open(Path(output_dir, f'{Path(file).with_suffix("").stem}.pkl'), 'wb') as f:
                     pickle.dump(d, f)
                 return X, y, times, evoked_list
-
             elif concat_participants:
                 X_list.append(X)
                 y_list.append(y)
             else:
-                # X, y = len_match_arrays(X, y)
                 filename = Path(output_dir, f'temp_decod_{Path(file).with_suffix("").stem}.png')
                 scores = temporal_decoding_with_smoothing(X, y, scoring=scoring, jobs=jobs)
                 plot_svm_scores(times, scores, scoring, title=filename.stem, filename=filename)
@@ -733,36 +750,31 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
         if concat_participants:
             X = np.concatenate(X_list, axis=0)
             y = np.concatenate(y_list, axis=0)
-            # X, y = len_match_arrays(X, y)
-            print(X.shape)
+            # Get a value for each datapoint for use with leave one group out cross-validation
+            # One fold per participant so can take a long time so use k fold validation if you value speed.
+            # groups = []
+            # for n, i in enumerate(y_list):
+            #     for x in range(len(i)):
+            #         groups.append(n)
+            # groups = np.array(groups)
+            names, groups = np.unique(groups, return_inverse=True)
+
+            print(X.shape, y.shape)
             print(np.array(np.unique(y, return_counts=True)))
-            filename = Path(output_dir,
-                            f"group_{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}.png".replace('/', '+'))
-            scores = temporal_decoding_with_smoothing(X, y, scoring=scoring, jobs=jobs)
-            plot_svm_scores(times, scores, scoring, title=filename.stem, filename=filename)
-            all_data = pd.DataFrame([scores], columns=times)
-            all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
-        else:
-            X = np.vstack(scores_list)
+            X = temporal_decoding_with_smoothing(X, y, scoring=scoring, groups=groups, jobs=jobs)
+            # all_data = pd.DataFrame([scores], columns=times)
+            # all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
 
-            try:
-                with open(Path(output_dir, fname_string).with_suffix('.dat'), 'wb') as file:
-                    pickle.dump((X, times, evoked_list), file)
-            except Exception as e:
-                print("Failed to save.")
-                print(e)
-
-    if not concat_participants:
+    if concat_participants:
+        pvalues = np.ones(481)
+        alpha = 0.05
+    else:
+        X = np.vstack(scores_list)
         res = ttest_1samp(X, popmean=0.5, axis=0)
         pvalues = res[1]
         alpha = 0.05
-        # alpha = 0.05 / 481
-
-        # print('Uncorrected sig:', np.sum(pvalues < 0.05))
-        # print('Corrected sig:', np.sum(pvalues < alpha))
-
         reject, pvalues, _, corrected_alpha = multipletests(pvals=pvalues, alpha=alpha, method='sidak')
-        print('sig:', np.sum(pvalues < alpha))
+        print('significant samples:', np.sum(pvalues < alpha))
 
         ## Cluster stats
         # chance = .5
@@ -774,28 +786,36 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
         # all_data = pd.concat([info, all_data], axis=1)
         # all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
 
-        # Better plot with significance
-        funcreturn, _ = decodingplot(scores_cond=X, p_values_cond=pvalues, times=times,
-                                     alpha=alpha, color='r', tmin=times[0], tmax=times[-1])
-        funcreturn.axes.set_title(f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
-        funcreturn.axes.set_ylim(0.45, 0.75)
-        funcreturn.axes.set_xlabel('Time (sec)')
-        funcreturn.axes.set_ylabel(scoring)
-        plt.savefig(Path(output_dir, 'group' + '_' + fname_string).with_suffix('.png'), dpi=240)
+    # Save data as a pickle
+    try:
+        with open(Path(output_dir, fname_string).with_suffix('.dat'), 'wb') as file:
+            pickle.dump((X, y, times, evoked_list), file)
+    except Exception as e:
+        print("Failed to save.")
+        print(e)
+
+    # Better plot with significance
+    funcreturn, _ = decodingplot(scores_cond=X, p_values_cond=pvalues, times=times,
+                                 alpha=alpha, color='r', tmin=times[0], tmax=times[-1])
+    funcreturn.axes.set_title(f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
+    funcreturn.axes.set_ylim(0.45, 0.75)
+    funcreturn.axes.set_xlabel('Time (sec)')
+    funcreturn.axes.set_ylabel(scoring)
+    plt.savefig(Path(output_dir, 'group' + '_' + fname_string).with_suffix('.png'), dpi=240)
+    plt.close()
+
+    # Make and save group plots
+    plots = activity_map_plots(evoked_list, group1=var1_events, group2=var2_events, plot_significance=True)
+    for key, plot in plots.items():
+        if 'anim' in key:
+            plot.save(Path(output_dir, f'Group_{key}'))
+        else:
+            plot.savefig(Path(output_dir, f'Group_{key}'), dpi=240)
+
+        plot.clf()
         plt.close()
 
-        # Make and save group plots
-        plots = activity_map_plots(evoked_list, group1=var1_events, group2=var2_events, plot_significance=True)
-        for key, plot in plots.items():
-            if 'anim' in key:
-                plot.save(Path(output_dir, f'Group_{key}'))
-            else:
-                plot.savefig(Path(output_dir, f'Group_{key}'), dpi=240)
-
-            plot.clf()
-            plt.close()
-
-        return X, y, times
+    return X, y, times
 
 
 if '__main__' in __name__:
@@ -806,12 +826,23 @@ if '__main__' in __name__:
     print(files)
     MVPA_analysis(files=files,
                   var1_events=['Normal/Correct'],
-                  var2_events=['Obvious/Correct', 'Subtle/Correct'],
+                  var2_events=['Obvious/Correct', 'Subtle/Correct', 'Global/Correct'],
                   excluded_events=[], scoring="roc_auc",
                   output_dir='../analyses/MVPA/rads',
                   indiv_plot=False,
-                  concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1,
-                  pickle_ouput=False)
+                  concat_participants=True,
+                  epochs_list=[], extra_event_labels=extra, jobs=-1)
+
+    # files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list.csv')
+    # # files = files[:6]
+    # MVPA_analysis(files=files,
+    #               var1_events=['sesh_1'],
+    #               var2_events=['sesh_2'],
+    #               excluded_events=[], scoring="roc_auc",
+    #               output_dir='../analyses/MVPA/naives',
+    #               indiv_plot=False,
+    #               concat_participants=True,
+    #               epochs_list=[], extra_event_labels=extra, jobs=1)
 
     # files1, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh1.csv')
     # files2, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh2.csv')

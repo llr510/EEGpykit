@@ -130,10 +130,10 @@ def temporal_decoding_with_smoothing(x_data, y, scoring="roc_auc", groups=[], jo
 
     if any(groups):
         logo = LeaveOneGroupOut()
-        x_mem = np.memmap('x_temp.dat', dtype='float32', mode='w+', shape=x_data.shape)
-        x_mem[:] = x_data[:]
-        x_mem.flush()
-        scores = cross_val_multiscore(time_decod, x_mem, y, cv=logo, groups=groups, n_jobs=jobs)
+        # x_mem = np.memmap('x_temp.dat', dtype='float32', mode='w+', shape=x_data.shape)
+        # x_mem[:] = x_data[:]
+        # x_mem.flush()
+        scores = cross_val_multiscore(time_decod, x_data, y, cv=logo, groups=groups, n_jobs=jobs)
     else:
         scores = cross_val_multiscore(time_decod, x_data, y, cv=5, n_jobs=jobs)
     # Mean scores across cross-validation splits.
@@ -627,7 +627,6 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
     @param extra_event_labels: list of lists
     @param jobs: number of processor cores to use (-1 uses maximum). Smaller number uses less RAM but takes longer.
     """
-
     scores_list = []
     evoked_list = {'group1': [], 'group2': []}
     X_list = []
@@ -650,10 +649,6 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
                 epochs = mne.read_epochs(file)
             epochs.pick_types(eeg=True, exclude="bads")
 
-            if indiv_plot:
-                evoked = epochs.average(method='mean')
-                evoked.plot()
-
             if extra_event_labels:
                 extra_labels = extra_event_labels[n]
                 epochs.event_id = {recode_label(k, extra_labels): v for k, v in epochs.event_id.items()}
@@ -667,6 +662,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             except KeyError:
                 var2 = []
 
+            # Drop epochs not used for analysis
             epochs = epochs[var1_events + var2_events]
 
             if len(excluded_events) > 0:
@@ -694,13 +690,12 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
 
             X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
 
-            events = list(epochs.event_id.keys())
-            events = [e.split('/') for e in events]
+            # Get the participant id and add it to group list for multi-session leave one group out temporal decoding
+            events = [e.split('/') for e in epochs.event_id.keys()]
             ppt_id = [i for i in events[0] if 'ppt' in i]
             assert len(ppt_id) == 1
-
             group_id = ppt_id * X.shape[0]
-            groups.append(group_id)
+            groups.extend(group_id)
 
             try:
                 evoked_list['group1'].append(epochs[var1_events].average(method=average_epochs))
@@ -752,18 +747,10 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             y = np.concatenate(y_list, axis=0)
             # Get a value for each datapoint for use with leave one group out cross-validation
             # One fold per participant so can take a long time so use k fold validation if you value speed.
-            # groups = []
-            # for n, i in enumerate(y_list):
-            #     for x in range(len(i)):
-            #         groups.append(n)
-            # groups = np.array(groups)
-            names, groups = np.unique(groups, return_inverse=True)
-
-            print(X.shape, y.shape)
+            groups = pd.factorize(groups)[0]
+            print(f'''X:{X.shape}\nY:{y.shape}\nGroups:{groups.shape}''')
             print(np.array(np.unique(y, return_counts=True)))
             X = temporal_decoding_with_smoothing(X, y, scoring=scoring, groups=groups, jobs=jobs)
-            # all_data = pd.DataFrame([scores], columns=times)
-            # all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
 
     if concat_participants:
         pvalues = np.ones(481)
@@ -775,16 +762,6 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
         alpha = 0.05
         reject, pvalues, _, corrected_alpha = multipletests(pvals=pvalues, alpha=alpha, method='sidak')
         print('significant samples:', np.sum(pvalues < alpha))
-
-        ## Cluster stats
-        # chance = .5
-        # scores_pvalues = cluster_stats_1samp(X - chance, n_jobs=jobs)
-
-        ## Save out data file
-        # all_data = pd.DataFrame(scores_list, columns=times)
-        # info = pd.DataFrame(extra_event_labels, columns=['ppt_num', 'sesh_num'])
-        # all_data = pd.concat([info, all_data], axis=1)
-        # all_data.to_csv(Path(output_dir, "all_data.csv"), index=False)
 
     # Save data as a pickle
     try:
@@ -811,7 +788,6 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             plot.save(Path(output_dir, f'Group_{key}'))
         else:
             plot.savefig(Path(output_dir, f'Group_{key}'), dpi=240)
-
         plot.clf()
         plt.close()
 
@@ -824,25 +800,25 @@ if '__main__' in __name__:
     files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_rads.csv')
     # files = files[:3]
     print(files)
-    MVPA_analysis(files=files,
-                  var1_events=['Normal/Correct'],
-                  var2_events=['Obvious/Correct', 'Subtle/Correct', 'Global/Correct'],
-                  excluded_events=[], scoring="roc_auc",
-                  output_dir='../analyses/MVPA/rads',
-                  indiv_plot=False,
-                  concat_participants=True,
-                  epochs_list=[], extra_event_labels=extra, jobs=-1)
-
-    # files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list.csv')
-    # # files = files[:6]
     # MVPA_analysis(files=files,
-    #               var1_events=['sesh_1'],
-    #               var2_events=['sesh_2'],
+    #               var1_events=['Normal/Correct'],
+    #               var2_events=['Obvious/Correct', 'Subtle/Correct', 'Global/Correct'],
     #               excluded_events=[], scoring="roc_auc",
-    #               output_dir='../analyses/MVPA/naives',
+    #               output_dir='../analyses/MVPA/rads',
     #               indiv_plot=False,
     #               concat_participants=True,
-    #               epochs_list=[], extra_event_labels=extra, jobs=1)
+    #               epochs_list=[], extra_event_labels=extra, jobs=-1)
+
+    files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list.csv')
+    # files = files[:6]
+    MVPA_analysis(files=files,
+                  var1_events=['sesh_1'],
+                  var2_events=['sesh_2'],
+                  excluded_events=[], scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives',
+                  indiv_plot=False,
+                  concat_participants=True,
+                  epochs_list=[], extra_event_labels=extra, jobs=1)
 
     # files1, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh1.csv')
     # files2, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh2.csv')

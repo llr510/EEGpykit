@@ -702,6 +702,8 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             # Get the participant id and add it to group list for multi-session leave one group out temporal decoding
             events = [e.split('/') for e in epochs.event_id.keys()]
             ppt_id = [i for i in events[0] if 'ppt' in i]
+            print(epochs.event_id.keys())
+            print(ppt_id)
             assert len(ppt_id) == 1
             group_id = ppt_id * X.shape[0]
             groups.extend(group_id)

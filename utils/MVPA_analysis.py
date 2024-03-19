@@ -659,12 +659,10 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
                 var1 = list(epochs[var1_events].event_id.values())
             except KeyError:
                 var1 = []
-                epochs = epochs[var2_events]
             try:
                 var2 = list(epochs[var2_events].event_id.values())
             except KeyError:
                 var2 = []
-                epochs = epochs[var1_events]
 
             if var1 and var2:
                 # Drop epochs not used for analysis

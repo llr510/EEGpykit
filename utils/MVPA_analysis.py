@@ -612,7 +612,7 @@ def get_filepaths_from_file(analysis_file):
 
 def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="roc_auc", output_dir='',
                   indiv_plot=False, concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1,
-                  pickle_ouput=False, save_output=True):
+                  pickle_ouput=False, save_output=False):
     """
     Performs MVPA analysis over multiple participants.
     If you want to compare across multiple sessions concat_participants must be true
@@ -766,13 +766,13 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
         print('significant samples:', np.sum(pvalues < alpha))
 
     # Save data as a pickle
-    if save_output:
-        try:
-            with open(Path(output_dir, fname_string).with_suffix('.dat'), 'wb') as file:
-                pickle.dump((X, y, times, evoked_list), file)
-        except Exception as e:
-            print("Failed to save.")
-            print(e)
+    # if save_output:
+    try:
+        with open(Path(output_dir, fname_string).with_suffix('.dat'), 'wb') as file:
+            pickle.dump((X, y, times, evoked_list), file)
+    except Exception as e:
+        print("Failed to save.")
+        print(e)
 
     # Better plot with significance
     funcreturn, _ = decodingplot(scores_cond=X, p_values_cond=pvalues, times=times,

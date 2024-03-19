@@ -802,10 +802,10 @@ def run_with_cli():
     parser.add_argument('--output', type=str, required=True, help="The output directory for the analysis")
     parser.add_argument('--var1', type=str, required=True, help="Events for condition 1")
     parser.add_argument('--var2', type=str, required=True, help="Events for condition 2")
-    parser.add_argument('--excluded_events', type=str, required=False, const='', help="Events for condition 2")
-    parser.add_argument('--jobs', type=int, required=False, const=-1, help="how many processes to spawn. By default "
+    parser.add_argument('--excluded_events', type=str, required=False, default='', help="Events for condition 2")
+    parser.add_argument('--jobs', type=int, required=False, default=-1, help="how many processes to spawn. By default "
                                                                            "uses all available processes.")
-    parser.add_argument('--scoring', type=str, required=False, const='roc_auc')
+    parser.add_argument('--scoring', type=str, required=False, default='roc_auc')
     parser.add_argument('--indiv_plot', action='store_true', required=False, help="")
     parser.add_argument('--concat_participants', action='store_true', required=False, help="")
 

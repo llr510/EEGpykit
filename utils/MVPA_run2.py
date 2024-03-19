@@ -49,8 +49,8 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
             # ii.	Contrast all normal vs all abnormal in session 1
             # iii.	Contrast all normal vs all abnormal in session 2
             MVPA_analysis(files,
-                          var1_events=[f'Normal{sesh}{resp}'],
-                          var2_events=[f'Malignant{sesh}{resp}', f'Global{sesh}{resp}'],
+                          var1_events=[f'normal{sesh}{resp}'],
+                          var2_events=[f'malignant{sesh}{resp}', f'global{sesh}{resp}'],
                           excluded_events=['Rate', 'Missed'],
                           scoring="roc_auc",
                           output_dir=Path(output_dir, f'Naives{sesh}/normal_vs_abnormal/{resp}'),
@@ -62,8 +62,8 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                           )
 
             # MVPA_analysis(files,
-            #               var1_events=[f'Normal{sesh}'],
-            #               var2_events=[f'Malignant{sesh}'],
+            #               var1_events=[f'normal{sesh}'],
+            #               var2_events=[f'malignant{sesh}'],
             #               excluded_events=['Rate', 'Missed'],
             #               scoring="roc_auc",
             #               output_dir=Path(output_dir, f'Naives{sesh}/normal_vs_malignant/'),
@@ -75,8 +75,8 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
             #               )
             #
             # MVPA_analysis(files,
-            #               var1_events=[f'Normal{sesh}'],
-            #               var2_events=[f'Global{sesh}'],
+            #               var1_events=[f'normal{sesh}'],
+            #               var2_events=[f'global{sesh}'],
             #               excluded_events=['Rate', 'Missed'],
             #               scoring="roc_auc",
             #               output_dir=Path(output_dir, f'Naives{sesh}/normal_vs_global/'),
@@ -90,8 +90,8 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         # a.	What about the brain?
         # i.	Across both session Obvious vs Priors (in addition just for hits)
         MVPA_analysis(files,
-                      var1_events=[f'Obvious{resp}'],
-                      var2_events=[f'Priors{resp}'],
+                      var1_events=[f'obvious{resp}'],
+                      var2_events=[f'priors{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Naives/across_session/obvious_vs_priors{resp}'),
@@ -103,8 +103,8 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       )
         # ii.	Across both session Contra vs Priors (in addition just for hits)
         MVPA_analysis(files,
-                      var1_events=[f'Contra{resp}'],
-                      var2_events=[f'Priors{resp}'],
+                      var1_events=[f'contra{resp}'],
+                      var2_events=[f'priors{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Naives/across_session/contra_vs_priors{resp}'),
@@ -116,8 +116,8 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       )
         # iii.	Across both session Subtle vs Priors (in addition just for hits)
         MVPA_analysis(files,
-                      var1_events=[f'Subtle{resp}'],
-                      var2_events=[f'Priors{resp}'],
+                      var1_events=[f'subtle{resp}'],
+                      var2_events=[f'priors{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Naives/across_session/subtle_vs_priors{resp}'),
@@ -131,8 +131,8 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         # 3.	If you want to look at the interaction and image type then you would run these contrasts:
         # i.	Session 1 vs Session 2 just for obvious images (in addition just for hits)
         MVPA_analysis(files,
-                      var1_events=[f'sesh_1/Obvious{resp}'],
-                      var2_events=[f'sesh_2/Obvious{resp}'],
+                      var1_events=[f'sesh_1/obvious{resp}'],
+                      var2_events=[f'sesh_2/obvious{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Naives/across-session/Obvious{resp}'),
@@ -144,8 +144,8 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       )
         # ii.	Session 1 vs Session 2 just for priors images (in addition just for hits)
         MVPA_analysis(files,
-                      var1_events=[f'sesh_1/Priors{resp}'],
-                      var2_events=[f'sesh_2/Priors{resp}'],
+                      var1_events=[f'sesh_1/priors{resp}'],
+                      var2_events=[f'sesh_2/priors{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Naives/across-session/Priors{resp}'),
@@ -158,8 +158,8 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
 
         # iii.	Session 1 vs Session 2 just for contra images (in addition just for hits)
         MVPA_analysis(files,
-                      var1_events=[f'sesh_1/Contra{resp}'],
-                      var2_events=[f'sesh_2/Contra{resp}'],
+                      var1_events=[f'sesh_1/contra{resp}'],
+                      var2_events=[f'sesh_2/contra{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Naives/across-session/Contra{resp}'),
@@ -172,8 +172,8 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
 
         # iv.	Session 1 vs Session 2 just for subtle images (in addition just for hits)
         MVPA_analysis(files,
-                      var1_events=[f'sesh_1/Subtle{resp}'],
-                      var2_events=[f'sesh_2/Subtle{resp}'],
+                      var1_events=[f'sesh_1/subtle{resp}'],
+                      var2_events=[f'sesh_2/subtle{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Naives/across-session/Subtle{resp}'),
@@ -199,8 +199,8 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         # a.	What about in the brain?
         # ii.	Contrast all normal vs all abnormal
         MVPA_analysis(files,
-                      var1_events=[f'Normal{resp}'],
-                      var2_events=[f'Malignant{resp}', f'Global{resp}'],
+                      var1_events=[f'normal{resp}'],
+                      var2_events=[f'malignant{resp}', f'global{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Rads/normal_vs_abnormal{resp}'),
@@ -212,8 +212,8 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       )
 
         # MVPA_analysis(files,
-        #               var1_events=[f'Normal'],
-        #               var2_events=[f'Malignant'],
+        #               var1_events=[f'normal'],
+        #               var2_events=[f'malignant'],
         #               excluded_events=['Rate', 'Missed'],
         #               scoring="roc_auc",
         #               output_dir=Path(output_dir, f'Rads/normal_vs_malignant{resp}'),
@@ -225,8 +225,8 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         #               )
         #
         # MVPA_analysis(files,
-        #               var1_events=[f'Normal'],
-        #               var2_events=[f'Global'],
+        #               var1_events=[f'normal'],
+        #               var2_events=[f'global'],
         #               excluded_events=['Rate', 'Missed'],
         #               scoring="roc_auc",
         #               output_dir=Path(output_dir, f'Rads/normal_vs_global{resp}'),
@@ -240,8 +240,8 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         # a.	What about the brain?
         # i.	Across both session Obvious vs Priors (in addition just for hits)
         MVPA_analysis(files,
-                      var1_events=[f'Obvious{resp}'],
-                      var2_events=[f'Priors{resp}'],
+                      var1_events=[f'obvious{resp}'],
+                      var2_events=[f'priors{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Rads/obvious_vs_priors{resp}'),
@@ -253,8 +253,8 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       )
         # ii.	Across both session Contra vs Priors (in addition just for hits)
         MVPA_analysis(files,
-                      var1_events=[f'Contra{resp}'],
-                      var2_events=[f'Priors{resp}'],
+                      var1_events=[f'contra{resp}'],
+                      var2_events=[f'priors{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Rads/contra_vs_priors{resp}'),
@@ -266,8 +266,8 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       )
         # iii.	Across both session Subtle vs Priors (in addition just for hits)
         MVPA_analysis(files,
-                      var1_events=[f'Subtle{resp}'],
-                      var2_events=[f'Priors{resp}'],
+                      var1_events=[f'subtle{resp}'],
+                      var2_events=[f'priors{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Rads/subtle_vs_priors{resp}'),

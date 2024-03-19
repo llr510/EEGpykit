@@ -141,16 +141,21 @@ def experiment_label_files(userIDs, sessions, exp, labels_path, behavioural_dir,
 if '__main__' in __name__:
     userIDs = [1, 2, 4, 5, 7, 9, 10, 11, 12, 13, 14, 15, 16]
     sessions = [1, 2]
+
+    wd = Path('/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/')
     experiment_label_files(userIDs, sessions, exp='naives',
-                           labels_path='/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Naives/experiment_trigger_labels.csv',
-                           behavioural_dir='/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Naives/behavioural',
-                           trigger_dir='/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Naives/EEG/',
-                           output_dir='/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Naives/output')
+                           labels_path=Path(wd, 'Naives/experiment_trigger_labels.csv'),
+                           behavioural_dir=Path(wd, 'Naives/behavioural'),
+                           trigger_dir=Path(wd, 'Naives/EEG/'),
+                           output_dir=Path(wd, 'Naives/output'))
 
     userIDs = [1, 2, 3, 4, 5]
     sessions = [1]
     experiment_label_files(userIDs, sessions, exp='rads',
-                           labels_path='/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Naives/experiment_trigger_labels.csv',
-                           behavioural_dir='/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/behavioural',
-                           trigger_dir='/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/EEG/',
-                           output_dir='/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/UNDERGRADUATE PROJECTS/EEG MVPA Project/data/Radiologists/output')
+                           labels_path=Path(wd, 'Naives/experiment_trigger_labels.csv'),
+                           behavioural_dir=Path(wd, 'Radiologists/behavioural'),
+                           trigger_dir=Path(wd, 'Radiologists/EEG/'),
+                           output_dir=Path(wd, 'Radiologists/output'))
+
+
+

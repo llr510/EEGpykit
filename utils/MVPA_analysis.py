@@ -16,6 +16,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from statsmodels.stats.multitest import multipletests
+import copy
 
 
 def recode_label(event, extra_labels=None, sep='/'):
@@ -637,6 +638,9 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
     fname_string = f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}".replace('/', '+')
     saved_classifier = Path(output_dir, fname_string).with_suffix('.dat')
 
+    if epochs_list:
+        epochs_data = copy.deepcopy(epochs_list)
+
     if not Path(output_dir).exists():
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -646,7 +650,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
     else:
         for n, file in enumerate(files):
             if epochs_list:
-                epochs = epochs_list[n]
+                epochs = epochs_data[n]
             else:
                 epochs = mne.read_epochs(file)
             epochs.pick_types(eeg=True, exclude="bads")
@@ -734,6 +738,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
 
             # clean up epochs object to save on memory
             del epochs
+            del epochs_data
             y[np.argwhere(np.isin(y, var1)).ravel()] = 0
             y[np.argwhere(np.isin(y, var2)).ravel()] = 1
 

@@ -124,6 +124,7 @@ def temporal_decoding_with_smoothing(x_data, y, scoring="roc_auc", groups=[], jo
     Original: https://github.com/SridharJagannathan/decAlertnessDecisionmaking_JNeuroscience2021/blob/main/Scripts/notebooks/Figure6_temporaldecodingresponses.ipynb
     """
     # make an estimator with scaling each channel by across its time pts and epochs.
+    # to deal with class imbalance weight classes with formula: n_samples / (n_classes * np.bincount(y))
     clf = make_pipeline(StandardScaler(), SVC(kernel='rbf', class_weight='balanced'))
     # Sliding estimator with classification made across each time pt by training with the same time pt.
     time_decod = SlidingEstimator(clf, n_jobs=jobs, scoring=scoring, verbose=False)
@@ -611,7 +612,7 @@ def get_filepaths_from_file(analysis_file):
 
 def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="roc_auc", output_dir='',
                   indiv_plot=False, concat_participants=False, epochs_list=[], extra_event_labels=[], jobs=-1,
-                  pickle_ouput=False):
+                  pickle_ouput=False, save_output=True):
     """
     Performs MVPA analysis over multiple participants.
     If you want to compare across multiple sessions concat_participants must be true
@@ -765,12 +766,13 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
         print('significant samples:', np.sum(pvalues < alpha))
 
     # Save data as a pickle
-    try:
-        with open(Path(output_dir, fname_string).with_suffix('.dat'), 'wb') as file:
-            pickle.dump((X, y, times, evoked_list), file)
-    except Exception as e:
-        print("Failed to save.")
-        print(e)
+    if save_output:
+        try:
+            with open(Path(output_dir, fname_string).with_suffix('.dat'), 'wb') as file:
+                pickle.dump((X, y, times, evoked_list), file)
+        except Exception as e:
+            print("Failed to save.")
+            print(e)
 
     # Better plot with significance
     funcreturn, _ = decodingplot(scores_cond=X, p_values_cond=pvalues, times=times,
@@ -797,17 +799,18 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
 
 def run_with_cli():
     print("################# STARTING #################")
-    parser = argparse.ArgumentParser(description='Preprocess EEG data')
+    parser = argparse.ArgumentParser(description='Analyse EEG data with MVPA')
     parser.add_argument('--file_list', type=str, required=True, help="The epoched participant list file")
     parser.add_argument('--output', type=str, required=True, help="The output directory for the analysis")
     parser.add_argument('--var1', type=str, required=True, help="Events for condition 1")
     parser.add_argument('--var2', type=str, required=True, help="Events for condition 2")
     parser.add_argument('--excluded_events', type=str, required=False, default='', help="Events for condition 2")
     parser.add_argument('--jobs', type=int, required=False, default=-1, help="how many processes to spawn. By default "
-                                                                           "uses all available processes.")
+                                                                             "uses all available processes.")
     parser.add_argument('--scoring', type=str, required=False, default='roc_auc')
     parser.add_argument('--indiv_plot', action='store_true', required=False, help="")
     parser.add_argument('--concat_participants', action='store_true', required=False, help="")
+    parser.add_argument('--save_output', action='store_true', required=False, help="")
 
     args = parser.parse_args()
 
@@ -821,6 +824,7 @@ def run_with_cli():
                   output_dir=args.output,
                   indiv_plot=args.indiv_plot,
                   concat_participants=args.concat_participants,
+                  save_output=args.save_output,
                   epochs_list=[], extra_event_labels=extra, jobs=args.jobs)
 
 
@@ -829,9 +833,9 @@ if '__main__' in __name__:
     run_with_cli()
     quit()
 
-    files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_rads.csv')
-    # files = files[:3]
-    print(files)
+    # files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_rads.csv')
+    # # files = files[:3]
+    # print(files)
     # MVPA_analysis(files=files,
     #               var1_events=['Normal/Correct'],
     #               var2_events=['Obvious/Correct', 'Subtle/Correct', 'Global/Correct'],
@@ -841,16 +845,16 @@ if '__main__' in __name__:
     #               concat_participants=True,
     #               epochs_list=[], extra_event_labels=extra, jobs=-1)
 
-    files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list.csv')
-    # files = files[:6]
-    MVPA_analysis(files=files,
-                  var1_events=['sesh_1'],
-                  var2_events=['sesh_2'],
-                  excluded_events=[], scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives',
-                  indiv_plot=False,
-                  concat_participants=True,
-                  epochs_list=[], extra_event_labels=extra, jobs=1)
+    # files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list.csv')
+    # # files = files[:6]
+    # MVPA_analysis(files=files,
+    #               var1_events=['sesh_1'],
+    #               var2_events=['sesh_2'],
+    #               excluded_events=[], scoring="roc_auc",
+    #               output_dir='../analyses/MVPA/naives',
+    #               indiv_plot=False,
+    #               concat_participants=True,
+    #               epochs_list=[], extra_event_labels=extra, jobs=1)
 
     # files1, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh1.csv')
     # files2, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh2.csv')

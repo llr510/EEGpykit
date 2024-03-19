@@ -669,6 +669,12 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             if var1 and var2:
                 # Drop epochs not used for analysis
                 epochs = epochs[var1_events + var2_events]
+            elif not var1 and not var2:
+                continue
+            elif not var1:
+                epochs = epochs[var2_events]
+            elif not var2:
+                epochs = epochs[var1_events]
 
             if len(excluded_events) > 0:
                 try:

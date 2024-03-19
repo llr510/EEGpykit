@@ -1,3 +1,4 @@
+import argparse
 import pickle
 from pathlib import Path
 
@@ -10,9 +11,9 @@ from mne.decoding import SlidingEstimator, cross_val_multiscore
 from mne.stats import ttest_1samp_no_p, ttest_ind_no_p, spatio_temporal_cluster_1samp_test, spatio_temporal_cluster_test
 from scipy import stats
 from scipy.stats import ttest_1samp
+from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.svm import SVC
 from statsmodels.stats.multitest import multipletests
 
@@ -794,8 +795,39 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
     return X, y, times
 
 
+def run_with_cli():
+    print("################# STARTING #################")
+    parser = argparse.ArgumentParser(description='Preprocess EEG data')
+    parser.add_argument('--file_list', type=str, required=True, help="The epoched participant list file")
+    parser.add_argument('--output', type=str, required=True, help="The output directory for the analysis")
+    parser.add_argument('--var1', type=str, required=True, help="Events for condition 1")
+    parser.add_argument('--var2', type=str, required=True, help="Events for condition 2")
+    parser.add_argument('--excluded_events', type=str, required=False, const='', help="Events for condition 2")
+    parser.add_argument('--jobs', type=int, required=False, const=-1, help="how many processes to spawn. By default "
+                                                                           "uses all available processes.")
+    parser.add_argument('--scoring', type=str, required=False, const='roc_auc')
+    parser.add_argument('--indiv_plot', action='store_true', required=False, help="")
+    parser.add_argument('--concat_participants', action='store_true', required=False, help="")
+
+    args = parser.parse_args()
+
+    files, extra = get_filepaths_from_file(args.file_list)
+    print('Found epoched data files:', files)
+    MVPA_analysis(files=files,
+                  var1_events=args.var1.split(','),
+                  var2_events=args.var2.split(','),
+                  excluded_events=args.excluded_events.split(','),
+                  scoring=args.scoring,
+                  output_dir=args.output,
+                  indiv_plot=args.indiv_plot,
+                  concat_participants=args.concat_participants,
+                  epochs_list=[], extra_event_labels=extra, jobs=args.jobs)
+
+
 if '__main__' in __name__:
     np.random.seed(1025)
+    run_with_cli()
+    quit()
 
     files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_rads.csv')
     # files = files[:3]

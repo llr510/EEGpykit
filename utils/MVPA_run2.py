@@ -190,7 +190,7 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
 
     epochs_list = []
     for file in files:
-        epochs = mne.read_epochs(file)
+        epochs = mne.read_epochs(file, verbose=False)
         epochs_list.append(epochs)
 
     for resp in ['', '/Correct']:
@@ -283,6 +283,9 @@ if '__main__' in __name__:
     # run_training_analysis(output_dir='../analyses/MVPA-viking/', indiv_plot=False)
     # run_training_hits_tnegs(output_dir='../analyses/MVPA-viking/', indiv_plot=False)
     # run_rads_analysis(output_dir='../analyses/MVPA-viking/')
+
+    run_rads_analysis(input_file='../analyses/MVPA/MVPA_analysis_list_rads.csv',
+                      output_dir=args.output, indiv_plot=False, jobs=args.jobs)
 
     print("################# STARTING #################")
     parser = argparse.ArgumentParser(description='Analyse EEG data with MVPA')

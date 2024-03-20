@@ -652,24 +652,30 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
                 epochs = mne.read_epochs(file)
             epochs.pick_types(eeg=True, exclude="bads")
 
-            if extra_event_labels:
-                extra_labels = extra_event_labels[n]
-                epochs.event_id = {recode_label(k, extra_labels): v for k, v in epochs.event_id.items()}
-                print(extra_labels)
+            extra_labels = extra_event_labels[n]
+            ppt_id = extra_labels[:1]
+            epochs.event_id = {recode_label(k, extra_labels): v for k, v in epochs.event_id.items()}
+            print(extra_labels)
+
+            X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
+            print(X.shape)
 
             try:
                 var1 = list(epochs[var1_events].event_id.values())
             except KeyError:
+                print(f'{var1_events} not found in {ppt_id}')
                 var1 = []
             try:
                 var2 = list(epochs[var2_events].event_id.values())
             except KeyError:
+                print(f'{var2_events} not found in {ppt_id}')
                 var2 = []
 
             if var1 and var2:
                 # Drop epochs not used for analysis
                 epochs = epochs[var1_events + var2_events]
             elif not var1 and not var2:
+                print(f'No events found in {ppt_id}')
                 continue
             elif not var1:
                 epochs = epochs[var2_events]
@@ -700,9 +706,9 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
                 print('Mismatch between sorted channel names and epochs channels names. Sorting not applied.')
 
             X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
+            print(X.shape)
 
             # Get the participant id and add it to group list for multi-session leave one group out temporal decoding
-            ppt_id = extra_labels[:1]
             group_id = ppt_id * X.shape[0]
             groups.extend(group_id)
 
@@ -841,37 +847,37 @@ def run_with_cli():
 
 if '__main__' in __name__:
     np.random.seed(1025)
-    # run_with_cli()
-    # quit()
+    run_with_cli()
+    quit()
 
-    # files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_rads.csv')
-    # # files = files[:3]
-    # print(files)
-    # MVPA_analysis(files=files,
-    #               var1_events=['Normal/Correct'],
-    #               var2_events=['Obvious/Correct', 'Subtle/Correct', 'Global/Correct'],
-    #               excluded_events=[], scoring="roc_auc",
-    #               output_dir='../analyses/MVPA/rads',
-    #               indiv_plot=False,
-    #               concat_participants=True,
-    #               epochs_list=[], extra_event_labels=extra, jobs=-1)
-
-    files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list.csv')
-    epochs_list = []
-    files = files[:6]
-    extra = extra[:6]
-    for file in files:
-        epochs = mne.read_epochs(file, verbose=False)
-        epochs_list.append(epochs)
-
+    files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_rads.csv')
+    # files = files[:3]
+    print(files)
     MVPA_analysis(files=files,
-                  var1_events=['sesh_1/Obvious'],
-                  var2_events=['sesh_2/Obvious'],
+                  var1_events=['Normal/Correct'],
+                  var2_events=['Obvious/Correct', 'Subtle/Correct', 'Global/Correct'],
                   excluded_events=[], scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives',
+                  output_dir='../analyses/MVPA/rads',
                   indiv_plot=False,
                   concat_participants=True,
-                  epochs_list=epochs_list, extra_event_labels=extra, jobs=2)
+                  epochs_list=[], extra_event_labels=extra, jobs=-1)
+
+    # files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list.csv')
+    # epochs_list = []
+    # files = files[:6]
+    # extra = extra[:6]
+    # for file in files:
+    #     epochs = mne.read_epochs(file, verbose=False)
+    #     epochs_list.append(epochs)
+    #
+    # MVPA_analysis(files=files,
+    #               var1_events=['sesh_1/Obvious'],
+    #               var2_events=['sesh_2/Obvious'],
+    #               excluded_events=[], scoring="roc_auc",
+    #               output_dir='../analyses/MVPA/naives',
+    #               indiv_plot=False,
+    #               concat_participants=True,
+    #               epochs_list=epochs_list, extra_event_labels=extra, jobs=2)
 
     # MVPA_analysis(files=files,
     #               var1_events=['sesh_1/Subtle'],

@@ -739,7 +739,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
 
             # clean up epochs object to save on memory
             del epochs
-            del epochs_data
+
             y[np.argwhere(np.isin(y, var1)).ravel()] = 0
             y[np.argwhere(np.isin(y, var2)).ravel()] = 1
 
@@ -758,6 +758,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
                 plot_svm_scores(times, scores, scoring, title=filename.stem, filename=filename)
                 scores_list.append(scores)
 
+        del epochs_data
         # Do group analysis plots
         if concat_participants:
             X = np.concatenate(X_list, axis=0)

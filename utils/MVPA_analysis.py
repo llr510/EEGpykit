@@ -708,7 +708,8 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             ppt_id = [i for i in events[0] if 'ppt' in i]
             print(epochs.event_id.keys())
             print(ppt_id)
-            assert len(ppt_id) == 1
+            assert len(ppt_id) > 0
+            ppt_id = ppt_id[:1]
             group_id = ppt_id * X.shape[0]
             groups.extend(group_id)
 

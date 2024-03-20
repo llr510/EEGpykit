@@ -20,10 +20,10 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
 
     files, extra = get_filepaths_from_file(input_file)
 
-    epochs_list = []
-    for file in files:
-        epochs = mne.read_epochs(file)
-        epochs_list.append(epochs)
+    # epochs_list = []
+    # for file in files:
+    #     epochs = mne.read_epochs(file, verbose=False)
+    #     epochs_list.append(epochs)
 
     # 1.	No main effect of Session in behavioral
     # a.	What about in the brain?
@@ -56,7 +56,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                           output_dir=Path(output_dir, f'Naives{sesh}/normal_vs_abnormal/{resp}'),
                           indiv_plot=indiv_plot,
                           jobs=jobs,
-                          epochs_list=epochs_list,
+                          epochs_list=[],
                           concat_participants=True,
                           extra_event_labels=extra
                           )
@@ -97,7 +97,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       output_dir=Path(output_dir, f'Naives/across_session/obvious_vs_priors{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=epochs_list,
+                      epochs_list=[],
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -110,7 +110,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       output_dir=Path(output_dir, f'Naives/across_session/contra_vs_priors{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=epochs_list,
+                      epochs_list=[],
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -123,7 +123,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       output_dir=Path(output_dir, f'Naives/across_session/subtle_vs_priors{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=epochs_list,
+                      epochs_list=[],
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -138,7 +138,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       output_dir=Path(output_dir, f'Naives/across-session/Obvious{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=epochs_list,
+                      epochs_list=[],
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -151,7 +151,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       output_dir=Path(output_dir, f'Naives/across-session/Priors{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=epochs_list,
+                      epochs_list=[],
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -165,7 +165,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       output_dir=Path(output_dir, f'Naives/across-session/Contra{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=epochs_list,
+                      epochs_list=[],
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -179,7 +179,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       output_dir=Path(output_dir, f'Naives/across-session/Subtle{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=epochs_list,
+                      epochs_list=[],
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -189,10 +189,10 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
 
     files, extra = get_filepaths_from_file(input_file)
 
-    epochs_list = []
-    for file in files:
-        epochs = mne.read_epochs(file)
-        epochs_list.append(epochs)
+    # epochs_list = []
+    # for file in files:
+    #     epochs = mne.read_epochs(file)
+    #     epochs_list.append(epochs)
 
     for resp in ['', '/Correct']:
         # 1.	No main effect of Session in behavioral
@@ -206,7 +206,7 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       output_dir=Path(output_dir, f'Rads/normal_vs_abnormal{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=epochs_list,
+                      epochs_list=[],
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -247,7 +247,7 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       output_dir=Path(output_dir, f'Rads/obvious_vs_priors{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=epochs_list,
+                      epochs_list=[],
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -260,7 +260,7 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       output_dir=Path(output_dir, f'Rads/contra_vs_priors{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=epochs_list,
+                      epochs_list=[],
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -273,7 +273,7 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       output_dir=Path(output_dir, f'Rads/subtle_vs_priors{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=epochs_list,
+                      epochs_list=[],
                       concat_participants=True,
                       extra_event_labels=extra
                       )

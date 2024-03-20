@@ -78,15 +78,15 @@ def individual_label_file(behavioural_path, trigger_path, labels_path=None, vali
     df_trgs = trg_file_parser(trigger_path, valid_triggers)
 
     label_index = {}
-    label_index['normal'] = [1, 6]
+    label_index['Normal'] = [1, 6]
 
-    label_index['malignant'] = [2, 7, 3, 8]
-    label_index['obvious'] = [2, 7]
-    label_index['subtle'] = [3, 8]
+    label_index['Malignant'] = [2, 7, 3, 8]
+    label_index['Obvious'] = [2, 7]
+    label_index['Subtle'] = [3, 8]
 
-    label_index['global'] = [4, 5, 9, 10]
-    label_index['contra'] = [4, 9]
-    label_index['prior'] = [5, 10]
+    label_index['Global'] = [4, 5, 9, 10]
+    label_index['Contra'] = [4, 9]
+    label_index['Prior'] = [5, 10]
 
     df = make_new_label_file(df_behavioural, df_trgs, label_index)
     return df

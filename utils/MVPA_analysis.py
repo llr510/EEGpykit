@@ -637,7 +637,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
     groups = []
     fname_string = f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}".replace('/', '+')
     saved_classifier = Path(output_dir, fname_string).with_suffix('.dat')
-
+    print(var1_events, var2_events)
     if epochs_list:
         epochs_data = copy.deepcopy(epochs_list)
 
@@ -758,7 +758,8 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
                 plot_svm_scores(times, scores, scoring, title=filename.stem, filename=filename)
                 scores_list.append(scores)
 
-        del epochs_data
+        if epochs_list:
+            del epochs_data
         # Do group analysis plots
         if concat_participants:
             X = np.concatenate(X_list, axis=0)
@@ -861,16 +862,31 @@ if '__main__' in __name__:
     #               concat_participants=True,
     #               epochs_list=[], extra_event_labels=extra, jobs=-1)
 
-    # files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list.csv')
-    # # files = files[:6]
-    # MVPA_analysis(files=files,
-    #               var1_events=['sesh_1'],
-    #               var2_events=['sesh_2'],
-    #               excluded_events=[], scoring="roc_auc",
-    #               output_dir='../analyses/MVPA/naives',
-    #               indiv_plot=False,
-    #               concat_participants=True,
-    #               epochs_list=[], extra_event_labels=extra, jobs=1)
+    files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list.csv')
+    epochs_list = []
+    files = files[:6]
+    extra = extra[:6]
+    for file in files:
+        epochs = mne.read_epochs(file, verbose=False)
+        epochs_list.append(epochs)
+
+    MVPA_analysis(files=files,
+                  var1_events=['sesh_1/Obvious'],
+                  var2_events=['sesh_2/Obvious'],
+                  excluded_events=[], scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives',
+                  indiv_plot=False,
+                  concat_participants=True,
+                  epochs_list=epochs_list, extra_event_labels=extra, jobs=2)
+
+    MVPA_analysis(files=files,
+                  var1_events=['sesh_1/Subtle'],
+                  var2_events=['sesh_2/Subtle'],
+                  excluded_events=[], scoring="roc_auc",
+                  output_dir='../analyses/MVPA/naives',
+                  indiv_plot=False,
+                  concat_participants=True,
+                  epochs_list=epochs_list, extra_event_labels=extra, jobs=2)
 
     # files1, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh1.csv')
     # files2, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh2.csv')

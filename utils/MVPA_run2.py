@@ -284,9 +284,6 @@ if '__main__' in __name__:
     # run_training_hits_tnegs(output_dir='../analyses/MVPA-viking/', indiv_plot=False)
     # run_rads_analysis(output_dir='../analyses/MVPA-viking/')
 
-    run_rads_analysis(input_file='../analyses/MVPA/MVPA_analysis_list_rads.csv',
-                      output_dir=args.output, indiv_plot=False, jobs=args.jobs)
-
     print("################# STARTING #################")
     parser = argparse.ArgumentParser(description='Analyse EEG data with MVPA')
     parser.add_argument('--analysis', type=str, required=True, help="Which analysis to do (Naives or Radiologists)")

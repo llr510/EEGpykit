@@ -133,9 +133,6 @@ def temporal_decoding_with_smoothing(x_data, y, scoring="roc_auc", groups=[], jo
 
     if any(groups):
         logo = LeaveOneGroupOut()
-        # x_mem = np.memmap('x_temp.dat', dtype='float32', mode='w+', shape=x_data.shape)
-        # x_mem[:] = x_data[:]
-        # x_mem.flush()
         scores = cross_val_multiscore(time_decod, x_data, y, cv=logo, groups=groups, n_jobs=jobs)
     else:
         scores = cross_val_multiscore(time_decod, x_data, y, cv=5, n_jobs=jobs)

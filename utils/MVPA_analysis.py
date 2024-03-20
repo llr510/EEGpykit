@@ -658,6 +658,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             if extra_event_labels:
                 extra_labels = extra_event_labels[n]
                 epochs.event_id = {recode_label(k, extra_labels): v for k, v in epochs.event_id.items()}
+                print(extra_labels)
 
             try:
                 var1 = list(epochs[var1_events].event_id.values())
@@ -704,12 +705,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             X = epochs.get_data()  # EEG signals: n_epochs, n_eeg_channels, n_times
 
             # Get the participant id and add it to group list for multi-session leave one group out temporal decoding
-            events = [e.split('/') for e in epochs.event_id.keys()]
-            ppt_id = [i for i in events[0] if 'ppt' in i]
-            print(epochs.event_id.keys())
-            print(ppt_id)
-            assert len(ppt_id) > 0
-            ppt_id = ppt_id[:1]
+            ppt_id = extra_labels[:1]
             group_id = ppt_id * X.shape[0]
             groups.extend(group_id)
 
@@ -767,6 +763,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
             # Get a value for each datapoint for use with leave one group out cross-validation
             # One fold per participant so can take a long time so use k fold validation if you value speed.
             groups = pd.factorize(groups)[0]
+            print(groups)
             print(f'''X:{X.shape}\nY:{y.shape}\nGroups:{groups.shape}''')
             print(np.array(np.unique(y, return_counts=True)))
             X = temporal_decoding_with_smoothing(X, y, scoring=scoring, groups=groups, jobs=jobs)
@@ -847,8 +844,8 @@ def run_with_cli():
 
 if '__main__' in __name__:
     np.random.seed(1025)
-    run_with_cli()
-    quit()
+    # run_with_cli()
+    # quit()
 
     # files, extra = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_rads.csv')
     # # files = files[:3]
@@ -879,14 +876,14 @@ if '__main__' in __name__:
                   concat_participants=True,
                   epochs_list=epochs_list, extra_event_labels=extra, jobs=2)
 
-    MVPA_analysis(files=files,
-                  var1_events=['sesh_1/Subtle'],
-                  var2_events=['sesh_2/Subtle'],
-                  excluded_events=[], scoring="roc_auc",
-                  output_dir='../analyses/MVPA/naives',
-                  indiv_plot=False,
-                  concat_participants=True,
-                  epochs_list=epochs_list, extra_event_labels=extra, jobs=2)
+    # MVPA_analysis(files=files,
+    #               var1_events=['sesh_1/Subtle'],
+    #               var2_events=['sesh_2/Subtle'],
+    #               excluded_events=[], scoring="roc_auc",
+    #               output_dir='../analyses/MVPA/naives',
+    #               indiv_plot=False,
+    #               concat_participants=True,
+    #               epochs_list=epochs_list, extra_event_labels=extra, jobs=2)
 
     # files1, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh1.csv')
     # files2, _ = get_filepaths_from_file('../analyses/MVPA/MVPA_analysis_list_sesh2.csv')

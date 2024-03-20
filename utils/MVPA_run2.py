@@ -91,7 +91,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         # i.	Across both session Obvious vs Priors (in addition just for hits)
         MVPA_analysis(files,
                       var1_events=[f'obvious{resp}'],
-                      var2_events=[f'priors{resp}'],
+                      var2_events=[f'prior{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Naives/across_session/obvious_vs_priors{resp}'),
@@ -104,7 +104,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         # ii.	Across both session Contra vs Priors (in addition just for hits)
         MVPA_analysis(files,
                       var1_events=[f'contra{resp}'],
-                      var2_events=[f'priors{resp}'],
+                      var2_events=[f'prior{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Naives/across_session/contra_vs_priors{resp}'),
@@ -117,7 +117,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         # iii.	Across both session Subtle vs Priors (in addition just for hits)
         MVPA_analysis(files,
                       var1_events=[f'subtle{resp}'],
-                      var2_events=[f'priors{resp}'],
+                      var2_events=[f'prior{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Naives/across_session/subtle_vs_priors{resp}'),
@@ -144,8 +144,8 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       )
         # ii.	Session 1 vs Session 2 just for priors images (in addition just for hits)
         MVPA_analysis(files,
-                      var1_events=[f'sesh_1/priors{resp}'],
-                      var2_events=[f'sesh_2/priors{resp}'],
+                      var1_events=[f'sesh_1/prior{resp}'],
+                      var2_events=[f'sesh_2/prior{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Naives/across-session/Priors{resp}'),
@@ -241,7 +241,7 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         # i.	Across both session Obvious vs Priors (in addition just for hits)
         MVPA_analysis(files,
                       var1_events=[f'obvious{resp}'],
-                      var2_events=[f'priors{resp}'],
+                      var2_events=[f'prior{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Rads/obvious_vs_priors{resp}'),
@@ -254,7 +254,7 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         # ii.	Across both session Contra vs Priors (in addition just for hits)
         MVPA_analysis(files,
                       var1_events=[f'contra{resp}'],
-                      var2_events=[f'priors{resp}'],
+                      var2_events=[f'prior{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Rads/contra_vs_priors{resp}'),
@@ -267,7 +267,7 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         # iii.	Across both session Subtle vs Priors (in addition just for hits)
         MVPA_analysis(files,
                       var1_events=[f'subtle{resp}'],
-                      var2_events=[f'priors{resp}'],
+                      var2_events=[f'prior{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
                       output_dir=Path(output_dir, f'Rads/subtle_vs_priors{resp}'),

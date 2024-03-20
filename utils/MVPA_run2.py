@@ -20,27 +20,26 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
 
     files, extra = get_filepaths_from_file(input_file)
 
-    # epochs_list = []
-    # for file in files:
-    #     epochs = mne.read_epochs(file, verbose=False)
-    #     epochs_list.append(epochs)
+    epochs_list = []
+    for file in files:
+        epochs = mne.read_epochs(file, verbose=False)
+        epochs_list.append(epochs)
 
     # 1.	No main effect of Session in behavioral
     # a.	What about in the brain?
     # i.	Contrast brain responses in session 1 and session 2
-    # MVPA_analysis(files,
-    #               var1_events=['sesh_1'],
-    #               var2_events=['sesh_2'],
-    #               excluded_events=['Rate', 'Missed'],
-    #               scoring="roc_auc",
-    #               output_dir=Path(output_dir,
-    #                               'Naives/across-session/all/'),
-    #               indiv_plot=indiv_plot,
-    #               jobs=jobs,
-    #               epochs_list=epochs_list,
-    #               concat_participants=True,
-    #               extra_event_labels=extra
-    #               )
+    MVPA_analysis(files,
+                  var1_events=['sesh_1'],
+                  var2_events=['sesh_2'],
+                  excluded_events=['Rate', 'Missed'],
+                  scoring="roc_auc",
+                  output_dir=Path(output_dir, 'Naives/between_session/all/'),
+                  indiv_plot=indiv_plot,
+                  jobs=jobs,
+                  epochs_list=epochs_list,
+                  concat_participants=True,
+                  extra_event_labels=extra
+                  )
 
     for resp in ['', '/Correct']:
         for sesh in ['/sesh_1', '/sesh_2']:
@@ -56,7 +55,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                           output_dir=Path(output_dir, f'Naives{sesh}/normal_vs_abnormal/{resp}'),
                           indiv_plot=indiv_plot,
                           jobs=jobs,
-                          epochs_list=[],
+                          epochs_list=epochs,
                           concat_participants=True,
                           extra_event_labels=extra
                           )
@@ -97,7 +96,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       output_dir=Path(output_dir, f'Naives/across_session/obvious_vs_priors{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=[],
+                      epochs_list=epochs,
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -110,7 +109,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       output_dir=Path(output_dir, f'Naives/across_session/contra_vs_priors{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=[],
+                      epochs_list=epochs,
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -123,7 +122,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       output_dir=Path(output_dir, f'Naives/across_session/subtle_vs_priors{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=[],
+                      epochs_list=epochs,
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -135,10 +134,10 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       var2_events=[f'sesh_2/obvious{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
-                      output_dir=Path(output_dir, f'Naives/across_session/Obvious{resp}'),
+                      output_dir=Path(output_dir, f'Naives/between_session/Obvious{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=[],
+                      epochs_list=epochs,
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -148,10 +147,10 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       var2_events=[f'sesh_2/prior{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
-                      output_dir=Path(output_dir, f'Naives/across_session/Priors{resp}'),
+                      output_dir=Path(output_dir, f'Naives/between_session/Priors{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=[],
+                      epochs_list=epochs,
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -162,10 +161,10 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       var2_events=[f'sesh_2/contra{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
-                      output_dir=Path(output_dir, f'Naives/across_session/Contra{resp}'),
+                      output_dir=Path(output_dir, f'Naives/between_session/Contra{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=[],
+                      epochs_list=epochs,
                       concat_participants=True,
                       extra_event_labels=extra
                       )
@@ -176,10 +175,10 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       var2_events=[f'sesh_2/subtle{resp}'],
                       excluded_events=['Rate', 'Missed'],
                       scoring="roc_auc",
-                      output_dir=Path(output_dir, f'Naives/across_session/Subtle{resp}'),
+                      output_dir=Path(output_dir, f'Naives/between_session/Subtle{resp}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
-                      epochs_list=[],
+                      epochs_list=epochs,
                       concat_participants=True,
                       extra_event_labels=extra
                       )

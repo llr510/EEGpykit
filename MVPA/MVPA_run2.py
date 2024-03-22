@@ -37,7 +37,6 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                   indiv_plot=indiv_plot,
                   jobs=jobs,
                   epochs_list=epochs_list,
-                  concat_participants=True,
                   extra_event_labels=extra
                   )
 
@@ -56,7 +55,6 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                           indiv_plot=indiv_plot,
                           jobs=jobs,
                           epochs_list=epochs_list,
-                          concat_participants=True,
                           extra_event_labels=extra
                           )
 
@@ -69,7 +67,6 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
             #               indiv_plot=indiv_plot,
             #               jobs=jobs,
             #               epochs_list=epochs_list,
-            #               concat_participants=True,
             #               extra_event_labels=extra
             #               )
             #
@@ -82,7 +79,6 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
             #               indiv_plot=indiv_plot,
             #               jobs=jobs,
             #               epochs_list=epochs_list,
-            #               concat_participants=True,
             #               extra_event_labels=extra
             #               )
         # 2.	There is a main effect of image target present type in behavioral
@@ -97,7 +93,6 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
-                      concat_participants=True,
                       extra_event_labels=extra
                       )
         # ii.	Across both session Contra vs Priors (in addition just for hits)
@@ -110,7 +105,6 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
-                      concat_participants=True,
                       extra_event_labels=extra
                       )
         # iii.	Across both session Subtle vs Priors (in addition just for hits)
@@ -123,7 +117,6 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
-                      concat_participants=True,
                       extra_event_labels=extra
                       )
 
@@ -138,7 +131,6 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
-                      concat_participants=True,
                       extra_event_labels=extra
                       )
         # ii.	Session 1 vs Session 2 just for priors images (in addition just for hits)
@@ -151,7 +143,6 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
-                      concat_participants=True,
                       extra_event_labels=extra
                       )
 
@@ -165,7 +156,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
-                      concat_participants=True,
+                      
                       extra_event_labels=extra
                       )
 
@@ -179,7 +170,6 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
-                      concat_participants=True,
                       extra_event_labels=extra
                       )
 
@@ -206,7 +196,6 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
-                      concat_participants=True,
                       extra_event_labels=extra
                       )
 
@@ -219,7 +208,6 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         #               indiv_plot=indiv_plot,
         #               jobs=jobs,
         #               epochs_list=epochs_list,
-        #               concat_participants=True,
         #               extra_event_labels=extra
         #               )
         #
@@ -232,7 +220,6 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         #               indiv_plot=indiv_plot,
         #               jobs=jobs,
         #               epochs_list=epochs_list,
-        #               concat_participants=True,
         #               extra_event_labels=extra
         #               )
         # 2.	There is a main effect of image target present type in behavioral
@@ -247,7 +234,6 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
-                      concat_participants=True,
                       extra_event_labels=extra
                       )
         # ii.	Across both session Contra vs Priors (in addition just for hits)
@@ -260,7 +246,6 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
-                      concat_participants=True,
                       extra_event_labels=extra
                       )
         # iii.	Across both session Subtle vs Priors (in addition just for hits)
@@ -273,7 +258,6 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
-                      concat_participants=True,
                       extra_event_labels=extra
                       )
 

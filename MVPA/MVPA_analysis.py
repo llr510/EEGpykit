@@ -408,9 +408,6 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
     saved_classifier = Path(output_dir, fname_string).with_suffix('.dat')
     print(var1_events, var2_events)
 
-    if epochs_list:
-        epochs_data = copy.deepcopy(epochs_list)
-
     if not Path(output_dir).exists():
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -418,6 +415,9 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
         with open(saved_classifier, 'rb') as f:
             X_score, y, times, evoked_list = pickle.load(f)
     else:
+        if epochs_list:
+            epochs_data = copy.deepcopy(epochs_list)
+
         for n, file in enumerate(files):
             # either load in epochs data here or receive it already loaded from the epochs_data argument
             if epochs_list:

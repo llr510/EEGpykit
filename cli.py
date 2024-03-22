@@ -1,11 +1,16 @@
 import argparse
 from pathlib import Path
+
 import mne
 import pandas as pd
+
 from preprocessor import EEG_Experiment
 
 
 def run_with_cli():
+    """
+    Run preprocessor.py with a Command Line Interface. Run preprocessor.py directly if you want the gui.
+    """
     print("################# STARTING #################")
     parser = argparse.ArgumentParser(description='Preprocess EEG data')
     parser.add_argument('--plist', type=str, required=True, help="The participant list file")

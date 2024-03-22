@@ -6,18 +6,21 @@ based on mne.io.read_raw_eeglab
 """
 
 import os.path as op
+
 import numpy as np
-from numpy import asarray
-# from ..utils import (_read_segments_file, _find_channels,_synthesize_stim_channel)
-from mne.io.utils import (_read_segments_file, _find_channels, _synthesize_stim_channel)
+# from ..base import _BaseRaw, _check_update_montage
+from mne.io.base import BaseRaw
 # from ..constants import FIFF
 # from ..meas_info import _empty_info, create_info
 from mne.io.constants import FIFF
 from mne.io.meas_info import _empty_info, create_info
-# from ..base import _BaseRaw, _check_update_montage
-from mne.io.base import BaseRaw
+# from ..utils import (_read_segments_file, _find_channels,_synthesize_stim_channel)
+from mne.io.utils import (_read_segments_file, _find_channels, _synthesize_stim_channel)
 # from ...utils import logger, verbose, check_version, warn
 from mne.utils import logger, verbose, warn
+from numpy import asarray
+
+from utils import libeep
 
 # from ...channels.montage import Montage
 # from ...epochs import _BaseEpochs
@@ -196,7 +199,7 @@ class RawANTCNT(BaseRaw):
         """
         # from scipy import io
 
-        import libeep
+
         # basedir = op.dirname(input_fname)
         # eeg = libeep.read_cnt(input_fname)
         eeg = libeep.cnt_file(input_fname)

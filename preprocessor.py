@@ -10,22 +10,24 @@ References
     statistical thresholding for EEG artifact rejection. Journal of
     Neuroscience Methods, vol. 192, issue 1, pp. 152-162, 2010.
 """
+import pickle
+import sys
+from collections import Counter
+from datetime import datetime
 from pathlib import Path, PosixPath
+from typing import Union
+
+import matplotlib.pyplot as plt
 import mne
+import numpy as np
+import pandas as pd
 from mne import io
 # pip install https://github.com/wmvanvliet/mne-faster/archive/refs/heads/main.zip
 from mne_faster import (find_bad_channels, find_bad_epochs,
                         find_bad_components, find_bad_channels_in_epochs)
-from utils.read_antcnt import read_raw_antcnt, read_events_trg
-import numpy as np
-import pickle
-import matplotlib.pyplot as plt
-import pandas as pd
-from collections import Counter
-from datetime import datetime
-from typing import Union
+
 from utils.dialogue_box import dialogue_window
-import sys
+from utils.read_antcnt import read_raw_antcnt, read_events_trg
 
 sys.path.append('utils')
 

@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import mne
 import numpy as np
 
-from MVPA_analysis import MVPA_analysis, get_filepaths_from_file, group_MVPA_and_plot
+from MVPA_analysis import MVPA_analysis, get_filepaths_from_file
+from MVPA_utils import group_MVPA_and_plot
 
 matplotlib.use('Agg')
 plt.rcParams['animation.ffmpeg_path'] = '/users/llr510/.local/share/ffmpeg-downloader/ffmpeg'

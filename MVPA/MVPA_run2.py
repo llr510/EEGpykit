@@ -156,7 +156,7 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
-                      
+
                       extra_event_labels=extra
                       )
 
@@ -175,7 +175,6 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
 
 
 def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
-
     files, extra = get_filepaths_from_file(input_file)
 
     epochs_list = []
@@ -262,12 +261,136 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       )
 
 
-if '__main__' in __name__:
-    # run_AB_analysis(output_dir='../analyses/MVPA-AB/')
-    # run_training_analysis(output_dir='../analyses/MVPA-viking/', indiv_plot=False)
-    # run_training_hits_tnegs(output_dir='../analyses/MVPA-viking/', indiv_plot=False)
-    # run_rads_analysis(output_dir='../analyses/MVPA-viking/')
+def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
 
+    if 'scene' in input_file:
+        stim = 'scene'
+    elif 'dot' in input_file:
+        stim = 'dot'
+    else:
+        stim = ''
+
+    files, extra = get_filepaths_from_file(Path(output_dir, f'MVPA_analysis_list_{stim}.csv'))
+
+    epochs_list = []
+    for file in files:
+        epochs = mne.read_epochs(file)
+        epochs_list.append(epochs)
+
+    conditions = ['S-S', 'NS-NS', 'NS-S', 'S-NS']
+    lags = ['', 'lag1', 'lag2', 'lag3', 'lag4']
+
+    """
+    # First analysis
+    1.	In Block 1 (S-S) compare T1 vs T2 (collapsed across lags and for each lag separately)
+    2.	In Block 4 (NS-NS) compare T1 vs T2 (collapsed across lags and for each lag separately)
+    
+    # Second analysis
+    1.	In Block 3 (NS-S) compare T1 vs T2 (collapsed across lags and for each lag separately)
+    2.	In Block 2 (S-NS) compare T1 vs T2 (collapsed across lags and for each lag separately)
+    """
+    for cond in conditions:
+        for lag in lags:
+            MVPA_analysis(files,
+                          var1_events=[f'{stim}/{cond}/T1/{lag}'],
+                          var2_events=[f'{stim}/{cond}/T2/{lag}'],
+                          scoring="roc_auc",
+                          output_dir=Path(output_dir, f'{stim}/T1vsT2/{cond}/{lag}'),
+                          indiv_plot=indiv_plot,
+                          jobs=jobs,
+                          epochs_list=epochs_list,
+                          extra_event_labels=extra)
+
+    """
+    First analysis
+    3. Compare T1 in Block 1 (S-S) & Block 2 (S-NS) vs T1 in Block 4 (NS-NS) & Block 3 (NS-S) 
+    (independent of the starting point of T1)
+    """
+    MVPA_analysis(files,
+                  var1_events=[f'{stim}/S-S/T1', f'{stim}/S-NS/T1'],
+                  var2_events=[f'{stim}/NS-NS/T1', f'{stim}/NS-S/T1'],
+                  scoring="roc_auc",
+                  output_dir=Path(output_dir, f'{stim}/SvsNS_T1'),
+                  indiv_plot=indiv_plot,
+                  jobs=jobs,
+                  epochs_list=epochs_list,
+                  extra_event_labels=extra)
+
+    """
+    First analysis
+    4. Compare T2 in Block 1 (S-S) to T2 in Block 4 (NS-NS) (collapsed across lags and for each lag separately)
+    """
+    for lag in lags:
+        MVPA_analysis(files,
+                      var1_events=[f'{stim}/S-S/T2/{lag}'],
+                      var2_events=[f'{stim}/NS-NS/T2/{lag}'],
+                      scoring="roc_auc",
+                      output_dir=Path(output_dir, f'{stim}/S-SvsNS-NS_T2/{lag}'),
+                      indiv_plot=indiv_plot,
+                      jobs=jobs,
+                      epochs_list=epochs_list,
+                      extra_event_labels=extra)
+
+    """
+    Second analysis
+    3.	Compare T2 in Block 2 (S-NS) to T2 in Block 4 (NS-NS) (collapsed across lags and for each lag separately)
+    """
+    for lag in lags:
+        MVPA_analysis(files,
+                      var1_events=[f'{stim}/S-NS/T2/{lag}'],
+                      var2_events=[f'{stim}/NS-NS/T2/{lag}'],
+                      scoring="roc_auc",
+                      output_dir=Path(output_dir, f'{stim}/S-SvsNS-NS_T2/{lag}'),
+                      indiv_plot=indiv_plot,
+                      jobs=jobs,
+                      epochs_list=epochs_list,
+                      extra_event_labels=extra)
+    """
+    Second analysis
+    4.	Compare T2 in Block 3 (NS-S) to T2 in Block 1 (S-S) (collapsed across lags and for each lag separately)
+    """
+    for lag in lags:
+        MVPA_analysis(files,
+                      var1_events=[f'{stim}/NS-S/T2/{lag}'],
+                      var2_events=[f'{stim}/S-S/T2/{lag}'],
+                      scoring="roc_auc",
+                      output_dir=Path(output_dir, f'{stim}/S-SvsNS-NS_T2/{lag}'),
+                      indiv_plot=indiv_plot,
+                      jobs=jobs,
+                      epochs_list=epochs_list,
+                      extra_event_labels=extra)
+
+    """
+    First analysis
+    5. Comparison Diff T1-T2 in S-S vs Diff T1-T2 in NS-NS (all and for each lag)
+    """
+    # TODO
+    """
+    Second analysis
+    5.	Comparison Diff T1-T2 in Block 2 (S-NS) vs Diff T1-T2 in Block 3 (NS-S) (all and for each lag)
+    """
+    # TODO
+
+
+def rename_nested_dirs(wd, target='Correct', new='HITS_vs_TNEGS', reverse=False):
+    if reverse:
+        target, new = new, target
+    dirs = Path(wd).rglob(target)
+    for d in dirs:
+        d.rename(Path(d.parent, new))
+
+
+if '__main__' in __name__:
+    # wd = Path('/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/INDIVIDUAL FOLDERS/LYNDON/MVPA')
+    #
+    # run_training_analysis(input_file=Path(wd, 'Naives', 'MVPA_analysis_list.csv'),
+    #                       output_dir=wd, indiv_plot=False, jobs=-1)
+    # run_training_analysis(input_file=Path(wd, 'Rads', 'MVPA_analysis_list_rads.csv'),
+    #                       output_dir=wd, indiv_plot=False, jobs=-1)
+    #
+    # rename_nested_dirs(wd, reverse=False)
+    #
+    # quit()
     print("################# STARTING #################")
     parser = argparse.ArgumentParser(description='Analyse EEG data with MVPA')
     parser.add_argument('--analysis', type=str, required=True, help="Which analysis to do (Naives or Radiologists)")
@@ -277,7 +400,14 @@ if '__main__' in __name__:
                                                                              "uses all available processes.")
 
     args = parser.parse_args()
+
     if args.analysis == 'Naives':
-        run_training_analysis(input_file=args.input_file, output_dir=args.output, indiv_plot=False, jobs=args.jobs)
+        analysis_func = run_training_analysis
     elif args.analysis == 'Rads':
-        run_rads_analysis(input_file=args.input_file, output_dir=args.output, indiv_plot=False, jobs=args.jobs)
+        analysis_func = run_rads_analysis
+    elif args.analysis == 'AB':
+        analysis_func = run_ab_analysis
+    else:
+        raise ValueError
+
+    analysis_func(input_file=args.input_file, output_dir=args.output, indiv_plot=False, jobs=args.jobs)

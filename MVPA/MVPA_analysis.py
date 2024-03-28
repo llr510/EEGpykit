@@ -4,10 +4,13 @@ import pickle
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+
 import mne
 import numpy as np
 import pandas as pd
 from matplotlib.colors import TwoSlopeNorm
+from matplotlib import rcParams
 from mne.decoding import SlidingEstimator, cross_val_multiscore
 from mne.stats import ttest_ind_no_p, spatio_temporal_cluster_test
 from scipy import stats
@@ -15,6 +18,10 @@ from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
+
+rcParams['axes.unicode_minus'] = False
+
+
 # from MVPA_utils import *
 
 
@@ -199,6 +206,8 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
     @param alpha: p level for filtering and mask
     @return: heatmap plot, topomap plot, animated topomap plot
     """
+    mask_params = dict(markersize=10, markerfacecolor="y")
+
     if type(epochs) is dict:
         # If input is a 2 key dictionary of evoked objects, get a group plot instead
         evoked_group1 = mne.grand_average(epochs['group1'])
@@ -224,33 +233,36 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
     if plot_significance:
         # Filter data by significance
         indiv_pvalues = cluster_stats_2samp([data_group1, data_group2], n_jobs=-1)
-        # print(indiv_pvalues)
+        # set non-significant values to 0
+        X_diff[np.where(indiv_pvalues > alpha)] = 0
+        # evoked_sig = evoked_diff.copy()
+        # evoked_sig.data = X_diff
+        # Define a threshold and create the mask
         if indiv_pvalues.all() > alpha:
             print('no significant clusters for individual plots, setting alpha to 1.00')
-            plot_significance = False
-            alpha = 1.00
+            mask = None
+            sig = ''
+        else:
+            mask = indiv_pvalues < alpha
+            sig = f' p<{alpha}'
     else:
-        alpha = 1.00
+        mask = None
+        sig = ''
 
-    # Define a threshold and create the mask
-    mask = indiv_pvalues < alpha
-    mask_params = dict(markersize=10, markerfacecolor="y")
-    # set non-significant values to 0
-    X_diff[np.where(indiv_pvalues > alpha)] = 0
-
-    evoked_sig = evoked_diff.copy()
-    evoked_sig.data = X_diff
-    sig = f' p<{alpha}'
-
-    heat, ax = plt.subplots(figsize=(10, 10))
+    # Make heatmap plot
+    heat, ax = plt.subplots(figsize=(12, 10))
     plot = ax.pcolormesh(times, ch_names, X_diff, cmap='twilight', norm=TwoSlopeNorm(0))
-    heat.colorbar(plot)
-    ax.set_ylabel('channels')
-    ax.set_xlabel('times')
+    heat.colorbar(plot, label='ΔµV', ticks=ticker.MultipleLocator(1e-6 / 2))
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(0.1))
+    ax.set_ylabel('Channels')
+    ax.set_xlabel('Times (ms)')
     ax.set_title(f"{'-'.join(group1)} vs {'-'.join(group2)} - Heatmap{sig}")
 
+    # Make topomap plot
     topo = evoked_diff.plot_topomap(times="peaks", ch_type="eeg", mask=mask, mask_params=mask_params, show=True)
     topo.suptitle(f"{'-'.join(group1)} vs {'-'.join(group2)} - Topomap{sig}")
+
+    # Make animated topoplot
     # fig, anim = evoked_sig.animate_topomap(times=epochs.times, ch_type="eeg", frame_rate=12, show=False,
     # blit=False, time_unit='s')  # , mask=mask, mask_params=mask_params)
     return {'heatmap.png': heat, 'topomap.png': topo}  # , 'animated_topomap.mp4': anim}
@@ -412,6 +424,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     if not overwrite_output and saved_classifier.exists():
+        print('Loading saved classifier scores:', saved_classifier)
         with open(saved_classifier, 'rb') as f:
             X_score, y, times, evoked_list = pickle.load(f)
     else:

@@ -278,7 +278,7 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         epochs_list.append(epochs)
 
     conditions = ['S-S', 'NS-NS', 'NS-S', 'S-NS']
-    lags = ['', 'lag1', 'lag2', 'lag3', 'lag4']
+    lags = ['', '/lag1', '/lag2', '/lag3', '/lag4']
 
     """
     # First analysis
@@ -292,10 +292,10 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
     for cond in conditions:
         for lag in lags:
             MVPA_analysis(files,
-                          var1_events=[f'{stim}/{cond}/T1/{lag}'],
-                          var2_events=[f'{stim}/{cond}/T2/{lag}'],
+                          var1_events=[f'{stim}/{cond}/T1{lag}'],
+                          var2_events=[f'{stim}/{cond}/T2{lag}'],
                           scoring="roc_auc",
-                          output_dir=Path(output_dir, f'{stim}/T1vsT2/{cond}/{lag}'),
+                          output_dir=Path(output_dir, f'{stim}/T1vsT2/{cond}{lag}'),
                           indiv_plot=indiv_plot,
                           jobs=jobs,
                           epochs_list=epochs_list,
@@ -322,10 +322,10 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
     """
     for lag in lags:
         MVPA_analysis(files,
-                      var1_events=[f'{stim}/S-S/T2/{lag}'],
-                      var2_events=[f'{stim}/NS-NS/T2/{lag}'],
+                      var1_events=[f'{stim}/S-S/T2{lag}'],
+                      var2_events=[f'{stim}/NS-NS/T2{lag}'],
                       scoring="roc_auc",
-                      output_dir=Path(output_dir, f'{stim}/S-SvsNS-NS_T2/{lag}'),
+                      output_dir=Path(output_dir, f'{stim}/S-SvsNS-NS_T2{lag}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
@@ -337,10 +337,10 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
     """
     for lag in lags:
         MVPA_analysis(files,
-                      var1_events=[f'{stim}/S-NS/T2/{lag}'],
-                      var2_events=[f'{stim}/NS-NS/T2/{lag}'],
+                      var1_events=[f'{stim}/S-NS/T2{lag}'],
+                      var2_events=[f'{stim}/NS-NS/T2{lag}'],
                       scoring="roc_auc",
-                      output_dir=Path(output_dir, f'{stim}/S-SvsNS-NS_T2/{lag}'),
+                      output_dir=Path(output_dir, f'{stim}/S-SvsNS-NS_T2{lag}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
@@ -351,10 +351,10 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
     """
     for lag in lags:
         MVPA_analysis(files,
-                      var1_events=[f'{stim}/NS-S/T2/{lag}'],
-                      var2_events=[f'{stim}/S-S/T2/{lag}'],
+                      var1_events=[f'{stim}/NS-S/T2{lag}'],
+                      var2_events=[f'{stim}/S-S/T2{lag}'],
                       scoring="roc_auc",
-                      output_dir=Path(output_dir, f'{stim}/S-SvsNS-NS_T2/{lag}'),
+                      output_dir=Path(output_dir, f'{stim}/S-SvsNS-NS_T2{lag}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,

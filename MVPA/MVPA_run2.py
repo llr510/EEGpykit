@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import mne
 import numpy as np
 
-from MVPA_analysis import MVPA_analysis, get_filepaths_from_file
+from MVPA_analysis import MVPA_analysis, get_filepaths_from_file, delta_evoked_MVPA
 
 matplotlib.use('Agg')
 plt.rcParams['animation.ffmpeg_path'] = '/users/llr510/.local/share/ffmpeg-downloader/ffmpeg'
@@ -261,8 +261,7 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       )
 
 
-def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
-
+def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False, regen_dat=False):
     if 'scene' in input_file:
         stim = 'scene'
     elif 'dot' in input_file:
@@ -273,9 +272,9 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
     files, extra = get_filepaths_from_file(Path(output_dir, f'MVPA_analysis_list_{stim}.csv'))
 
     epochs_list = []
-    for file in files:
-        epochs = mne.read_epochs(file)
-        epochs_list.append(epochs)
+    # for file in files:
+    #     epochs = mne.read_epochs(file)
+    #     epochs_list.append(epochs)
 
     conditions = ['S-S', 'NS-NS', 'NS-S', 'S-NS']
     lags = ['', '/lag1', '/lag2', '/lag3', '/lag4']
@@ -289,17 +288,25 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
     1.	In Block 3 (NS-S) compare T1 vs T2 (collapsed across lags and for each lag separately)
     2.	In Block 2 (S-NS) compare T1 vs T2 (collapsed across lags and for each lag separately)
     """
-    for cond in conditions:
-        for lag in lags:
-            MVPA_analysis(files,
-                          var1_events=[f'{stim}/{cond}/T1{lag}'],
-                          var2_events=[f'{stim}/{cond}/T2{lag}'],
-                          scoring="roc_auc",
-                          output_dir=Path(output_dir, f'{stim}/T1vsT2/{cond}{lag}'),
-                          indiv_plot=indiv_plot,
-                          jobs=jobs,
-                          epochs_list=epochs_list,
-                          extra_event_labels=extra)
+    for lag in lags:
+        evoked_dict = {}
+        for cond in conditions:
+            evoked_dict[cond], X_score, y, times = MVPA_analysis(files,
+                                                                 var1_events=[f'{stim}/{cond}/T1{lag}'],
+                                                                 var2_events=[f'{stim}/{cond}/T2{lag}'],
+                                                                 scoring="roc_auc",
+                                                                 output_dir=Path(output_dir,
+                                                                                 f'{stim}/T1vsT2/{cond}{lag}'),
+                                                                 indiv_plot=indiv_plot,
+                                                                 jobs=jobs,
+                                                                 epochs_list=epochs_list,
+                                                                 extra_event_labels=extra,
+                                                                 overwrite_output=regen_dat)
+
+        delta_evoked_MVPA(evoked_dict, condition_vars=['S-S', 'NS-NS'],
+                          title=f'{stim}_S-SvsNS-NS_T1-T2delta{lag.replace("/","_")}')
+        delta_evoked_MVPA(evoked_dict, condition_vars=['S-NS', 'NS-S'],
+                          title=f'{stim}_S-NSvsNS-S_T1-T2delta{lag.replace("/", "_")}')
 
     """
     First analysis
@@ -310,11 +317,12 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                   var1_events=[f'{stim}/S-S/T1', f'{stim}/S-NS/T1'],
                   var2_events=[f'{stim}/NS-NS/T1', f'{stim}/NS-S/T1'],
                   scoring="roc_auc",
-                  output_dir=Path(output_dir, f'{stim}/SvsNS_T1'),
+                  output_dir=Path(output_dir, f'{stim}/T1/SvsNS'),
                   indiv_plot=indiv_plot,
                   jobs=jobs,
                   epochs_list=epochs_list,
-                  extra_event_labels=extra)
+                  extra_event_labels=extra,
+                  overwrite_output=regen_dat)
 
     """
     First analysis
@@ -325,11 +333,12 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       var1_events=[f'{stim}/S-S/T2{lag}'],
                       var2_events=[f'{stim}/NS-NS/T2{lag}'],
                       scoring="roc_auc",
-                      output_dir=Path(output_dir, f'{stim}/S-SvsNS-NS_T2{lag}'),
+                      output_dir=Path(output_dir, f'{stim}/T2/S-SvsNS-NS{lag}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
-                      extra_event_labels=extra)
+                      extra_event_labels=extra,
+                      overwrite_output=regen_dat)
 
     """
     Second analysis
@@ -340,11 +349,12 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       var1_events=[f'{stim}/S-NS/T2{lag}'],
                       var2_events=[f'{stim}/NS-NS/T2{lag}'],
                       scoring="roc_auc",
-                      output_dir=Path(output_dir, f'{stim}/S-SvsNS-NS_T2{lag}'),
+                      output_dir=Path(output_dir, f'{stim}/T2/S-NSvsNS-NS{lag}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
-                      extra_event_labels=extra)
+                      extra_event_labels=extra,
+                      overwrite_output=regen_dat)
     """
     Second analysis
     4.	Compare T2 in Block 3 (NS-S) to T2 in Block 1 (S-S) (collapsed across lags and for each lag separately)
@@ -354,11 +364,12 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
                       var1_events=[f'{stim}/NS-S/T2{lag}'],
                       var2_events=[f'{stim}/S-S/T2{lag}'],
                       scoring="roc_auc",
-                      output_dir=Path(output_dir, f'{stim}/S-SvsNS-NS_T2{lag}'),
+                      output_dir=Path(output_dir, f'{stim}/T2/NS-SvsS-S{lag}'),
                       indiv_plot=indiv_plot,
                       jobs=jobs,
                       epochs_list=epochs_list,
-                      extra_event_labels=extra)
+                      extra_event_labels=extra,
+                      overwrite_output=regen_dat)
 
     """
     First analysis
@@ -391,6 +402,19 @@ if '__main__' in __name__:
     # rename_nested_dirs(wd, reverse=False)
     #
     # quit()
+
+    wd = Path(
+        '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/analysis/MVPA-group_method/MVPA-AB/')
+    '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/analysis/MVPA-group_method/MVPA-AB/dot/T1vsT2/S-S/dot+S-S+T1_vs_dot+S-S+T2.dat'
+    '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/analysis/MVPA-group_method/MVPA-AB/dot/T1vsT2/S-S/dot+S-S+T1_vs_dot+S-S+T2.dat'
+
+    run_ab_analysis(input_file=Path(wd, 'MVPA_analysis_list_dot.csv').name, output_dir=wd, jobs=1, indiv_plot=False,
+                    regen_dat=False)
+    run_ab_analysis(input_file=Path(wd, 'MVPA_analysis_list_scene.csv').name, output_dir=wd, jobs=1, indiv_plot=False,
+                    regen_dat=False)
+
+    quit()
+
     print("################# STARTING #################")
     parser = argparse.ArgumentParser(description='Analyse EEG data with MVPA')
     parser.add_argument('--analysis', type=str, required=True, help="Which analysis to do (Naives or Radiologists)")

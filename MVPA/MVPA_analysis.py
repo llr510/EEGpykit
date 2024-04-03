@@ -233,16 +233,16 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
     if plot_significance:
         # Filter data by significance
         indiv_pvalues = cluster_stats_2samp([data_group1, data_group2], n_jobs=-1)
-        # set non-significant values to 0
-        X_diff[np.where(indiv_pvalues > alpha)] = 0
         # evoked_sig = evoked_diff.copy()
         # evoked_sig.data = X_diff
-        # Define a threshold and create the mask
         if indiv_pvalues.all() > alpha:
-            print('no significant clusters for individual plots, setting alpha to 1.00')
+            print('no significant clusters for individual plots')
             mask = None
-            sig = ''
+            sig = f' p>{alpha}'
         else:
+            # set non-significant values to 0
+            X_diff[np.where(indiv_pvalues > alpha)] = 0
+            # Define a threshold and create the mask
             mask = indiv_pvalues < alpha
             sig = f' p<{alpha}'
     else:
@@ -252,7 +252,13 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
     # Make heatmap plot
     heat, ax = plt.subplots(figsize=(12, 10))
     plot = ax.pcolormesh(times, ch_names, X_diff, cmap='twilight', norm=TwoSlopeNorm(0))
-    heat.colorbar(plot, label='ΔµV', ticks=ticker.MultipleLocator(1e-6 / 2))
+
+    if X_diff.min() == X_diff.max():
+        heat.colorbar(plot, label='ΔµV')
+    else:
+        ticks = ticker.MultipleLocator(1e-6 / 2)
+        # tick_list = ticks.tick_values(np.min(X_diff), np.max(X_diff))
+        heat.colorbar(plot, label='ΔµV', ticks=ticks)
     ax.xaxis.set_major_locator(ticker.MultipleLocator(0.1))
     ax.set_ylabel('Channels')
     ax.set_xlabel('Times (ms)')
@@ -419,7 +425,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
     fname_string = f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)}".replace('/', '+')
     saved_classifier = Path(output_dir, fname_string).with_suffix('.dat')
     print(var1_events, var2_events)
-
+    print(saved_classifier, saved_classifier.exists())
     if not Path(output_dir).exists():
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -427,6 +433,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
         print('Loading saved classifier scores:', saved_classifier)
         with open(saved_classifier, 'rb') as f:
             X_score, y, times, evoked_list = pickle.load(f)
+            return evoked_list, X_score, y, times
     else:
         if epochs_list:
             epochs_data = copy.deepcopy(epochs_list)
@@ -548,10 +555,20 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
     # Better plot with significance
     # Just one output so no significance testing is done. Just set p to 1.0 for every time point.
     pvalues = np.ones(len(times))
-    funcreturn, _ = decodingplot(scores_cond=X_score, p_values_cond=pvalues, times=times,
+    funcreturn, _ = decodingplot(scores_cond=X_score.copy(), p_values_cond=pvalues, times=times,
                                  alpha=0.05, color='r', tmin=times[0], tmax=times[-1])
     funcreturn.axes.set_title(f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
-    funcreturn.axes.set_ylim(0.45, 0.75)
+    # Limit y axis to 0.75 if performance isn't higher
+    if X_score.max() > 0.75:
+        ymax = 1.0
+    else:
+        ymax = 0.75
+    if X_score.min() < 0.45:
+        ymin = 0
+    else:
+        ymin = 0.45
+    funcreturn.axes.set_ylim(ymin, ymax)
+
     funcreturn.axes.set_xlabel('Time (sec)')
     funcreturn.axes.set_ylabel(scoring)
     plt.savefig(Path(output_dir, 'group' + '_' + fname_string).with_suffix('.png'), dpi=240)
@@ -567,7 +584,50 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
         plot.clf()
         plt.close()
 
-    return X_score, y, times
+    return evoked_list, X_score, y, times
+
+
+def delta_evoked_MVPA(evoked_dict, condition_vars, title):
+    X_diff = []
+    y = []
+    groups = []
+    scoring = "roc_auc"
+    for n_cond, cond in enumerate(condition_vars):
+        evoked_list_1 = evoked_dict[cond]['group1']
+        evoked_list_2 = evoked_dict[cond]['group2']
+        assert len(evoked_list_1) == len(evoked_list_2)
+        for n_participant, evokeds in enumerate(zip(evoked_list_1, evoked_list_2)):
+            evoked_diff = mne.combine_evoked(evokeds, weights=[1, -1])
+            X_diff.append(evoked_diff.get_data())
+            y.append(n_cond)
+            groups.append(n_participant)
+
+    X = np.array(X_diff)
+    y = np.array(y)
+    X_score = temporal_decoding(X, y, scoring, groups)
+    times = evoked_list_1[0].times
+
+    # Better plot with significance
+    # Just one output so no significance testing is done. Just set p to 1.0 for every time point.
+    pvalues = np.ones(len(times))
+    funcreturn, _ = decodingplot(scores_cond=X_score.copy(), p_values_cond=pvalues, times=times,
+                                 alpha=0.05, color='r', tmin=times[0], tmax=times[-1])
+    funcreturn.axes.set_title(f"{title} - Sensor space decoding")
+    # Limit y axis to 0.75 if performance isn't higher
+    if X_score.max() > 0.75:
+        ymax = 1.0
+    else:
+        ymax = 0.75
+    if X_score.min() < 0.45:
+        ymin = 0
+    else:
+        ymin = 0.45
+    funcreturn.axes.set_ylim(ymin, ymax)
+
+    funcreturn.axes.set_xlabel('Time (sec)')
+    funcreturn.axes.set_ylabel(scoring)
+    plt.savefig(Path(title).with_suffix('.png'), dpi=240)
+    plt.close()
 
 
 def run_with_cli():

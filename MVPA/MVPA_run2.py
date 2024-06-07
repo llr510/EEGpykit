@@ -291,6 +291,7 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False, regen_dat
     for lag in lags:
         evoked_dict = {}
         for cond in conditions:
+            # Perform ordinary MVPA analysis returning dictionary of evoked objects for each condition
             evoked_dict[cond], X_score, y, times = MVPA_analysis(files,
                                                                  var1_events=[f'{stim}/{cond}/T1{lag}'],
                                                                  var2_events=[f'{stim}/{cond}/T2{lag}'],
@@ -303,8 +304,16 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False, regen_dat
                                                                  extra_event_labels=extra,
                                                                  overwrite_output=regen_dat)
 
+        """
+        First analysis
+        5. Comparison Diff T1-T2 in S-S vs Diff T1-T2 in NS-NS (all and for each lag)
+        """
         delta_evoked_MVPA(evoked_dict, condition_vars=['S-S', 'NS-NS'],
                           title=f'{stim}_S-SvsNS-NS_T1-T2delta{lag.replace("/","_")}')
+        """
+        Second analysis
+        5.	Comparison Diff T1-T2 in Block 2 (S-NS) vs Diff T1-T2 in Block 3 (NS-S) (all and for each lag)
+        """
         delta_evoked_MVPA(evoked_dict, condition_vars=['S-NS', 'NS-S'],
                           title=f'{stim}_S-NSvsNS-S_T1-T2delta{lag.replace("/", "_")}')
 
@@ -371,16 +380,7 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False, regen_dat
                       extra_event_labels=extra,
                       overwrite_output=regen_dat)
 
-    """
-    First analysis
-    5. Comparison Diff T1-T2 in S-S vs Diff T1-T2 in NS-NS (all and for each lag)
-    """
-    # TODO
-    """
-    Second analysis
-    5.	Comparison Diff T1-T2 in Block 2 (S-NS) vs Diff T1-T2 in Block 3 (NS-S) (all and for each lag)
-    """
-    # TODO
+
 
 
 def rename_nested_dirs(wd, target='Correct', new='HITS_vs_TNEGS', reverse=False):

@@ -238,7 +238,7 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
         if indiv_pvalues.all() > alpha:
             print('no significant clusters for individual plots')
             mask = None
-            sig = f' p>{alpha}'
+            sig = f' p not < {alpha}'
         else:
             # set non-significant values to 0
             X_diff[np.where(indiv_pvalues > alpha)] = 0
@@ -374,7 +374,7 @@ def temporal_decoding(x_data, y, scoring="roc_auc", groups=[], jobs=-1):
     @param y: array of epoch events
     @param groups: integer array of unique data groups if using LOGO cross validation instead of k-fold.
     @param jobs: number of logical processor cores to use (-1 uses all). Smaller number uses less RAM but takes longer.
-    @return scores: array of SVM accuracy scores
+    @return score: array of SVM accuracy scores (TODO what shape??)
 
     Original: https://github.com/SridharJagannathan/decAlertnessDecisionmaking_JNeuroscience2021/blob/main/Scripts/notebooks/Figure6_temporaldecodingresponses.ipynb
     """
@@ -555,9 +555,14 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
     # Better plot with significance
     # Just one output so no significance testing is done. Just set p to 1.0 for every time point.
     pvalues = np.ones(len(times))
+    # funcreturn, _ = decodingplot(scores_cond=X_score.copy(), p_values_cond=pvalues, times=times,
+    #                              alpha=0.05, color='r', tmin=times[0], tmax=times[-1])
     funcreturn, _ = decodingplot(scores_cond=X_score.copy(), p_values_cond=pvalues, times=times,
-                                 alpha=0.05, color='r', tmin=times[0], tmax=times[-1])
+                                 alpha=0.05, color='r', tmin=0, tmax=times[-1])
     funcreturn.axes.set_title(f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
+
+    # pd.DataFrame.from_dict({'X_scores': X_score, 'times': times})
+
     # Limit y axis to 0.75 if performance isn't higher
     if X_score.max() > 0.75:
         ymax = 1.0
@@ -588,6 +593,16 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
 
 
 def delta_evoked_MVPA(evoked_dict, condition_vars, title):
+    """
+    Performs an MVPA analysis on the difference between conditions
+
+    e.g: evoked_dict['condition']['group'] = list(individual evoked objects)
+    Get the difference between 'group' for each individual and then feed that into the MVPA analysis
+
+    @param evoked_dict: dictionary of evoked objects with condition keys
+    @param condition_vars: list of two conditions to index the evoked_dict by
+    @param title: the title of the analysis
+    """
     X_diff = []
     y = []
     groups = []
@@ -607,11 +622,12 @@ def delta_evoked_MVPA(evoked_dict, condition_vars, title):
     X_score = temporal_decoding(X, y, scoring, groups)
     times = evoked_list_1[0].times
 
-    # Better plot with significance
     # Just one output so no significance testing is done. Just set p to 1.0 for every time point.
     pvalues = np.ones(len(times))
+    # funcreturn, _ = decodingplot(scores_cond=X_score.copy(), p_values_cond=pvalues, times=times,
+    #                              alpha=0.05, color='r', tmin=times[0], tmax=times[-1])
     funcreturn, _ = decodingplot(scores_cond=X_score.copy(), p_values_cond=pvalues, times=times,
-                                 alpha=0.05, color='r', tmin=times[0], tmax=times[-1])
+                                 alpha=0.05, color='r', tmin=0, tmax=times[-1])
     funcreturn.axes.set_title(f"{title} - Sensor space decoding")
     # Limit y axis to 0.75 if performance isn't higher
     if X_score.max() > 0.75:

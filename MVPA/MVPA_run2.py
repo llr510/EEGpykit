@@ -309,7 +309,7 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False, regen_dat
         5. Comparison Diff T1-T2 in S-S vs Diff T1-T2 in NS-NS (all and for each lag)
         """
         delta_evoked_MVPA(evoked_dict, condition_vars=['S-S', 'NS-NS'],
-                          title=f'{stim}_S-SvsNS-NS_T1-T2delta{lag.replace("/","_")}')
+                          title=f'{stim}_S-SvsNS-NS_T1-T2delta{lag.replace("/", "_")}')
         """
         Second analysis
         5.	Comparison Diff T1-T2 in Block 2 (S-NS) vs Diff T1-T2 in Block 3 (NS-S) (all and for each lag)
@@ -379,8 +379,6 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False, regen_dat
                       epochs_list=epochs_list,
                       extra_event_labels=extra,
                       overwrite_output=regen_dat)
-
-
 
 
 def rename_nested_dirs(wd, target='Correct', new='HITS_vs_TNEGS', reverse=False):

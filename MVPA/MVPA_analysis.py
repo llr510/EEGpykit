@@ -440,7 +440,7 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
         print('Loading saved classifier scores:', saved_classifier)
         with open(saved_classifier, 'rb') as f:
             X_score, y, times, evoked_list = pickle.load(f)
-            return evoked_list, X_score, y, times
+            # return evoked_list, X_score, y, times
     else:
         if epochs_list:
             epochs_data = copy.deepcopy(epochs_list)

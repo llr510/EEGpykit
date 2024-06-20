@@ -193,12 +193,13 @@ def cluster_stats_2samp(X_list, n_jobs=-1):
     return np.squeeze(p_values_).T
 
 
-def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.05):
+def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.05, abs_difference = True):
     """
     Plot figures for individual participant sensor activity comparing two different conditions together.
     Significant differences are calculating using a spatio-temporal cluster t-test.
     Plots are of weighted  activity deltas.
 
+    @param abs_difference: whether to plot topomaps with absolute difference values or negative and positive difference values
     @param epochs: mne.Epochs object
     @param group1: list of event labels
     @param group2: list of event labels
@@ -265,7 +266,13 @@ def activity_map_plots(epochs, group1, group2, plot_significance=True, alpha=0.0
     ax.set_title(f"{'-'.join(group1)} vs {'-'.join(group2)} - Heatmap{sig}")
 
     # Make topomap plot
-    topo = evoked_diff.plot_topomap(times="peaks", ch_type="eeg", mask=mask, mask_params=mask_params, show=True)
+    if abs_difference:
+        evoked_diff_abs = evoked_diff.copy()
+        evoked_diff_abs.data = abs(evoked_diff_abs.get_data())
+        topo = evoked_diff_abs.plot_topomap(times="peaks", ch_type="eeg", mask=mask, mask_params=mask_params, show=True,
+                                            cmap='Reds', vlim=(0, None))
+    else:
+        topo = evoked_diff.plot_topomap(times="peaks", ch_type="eeg", mask=mask, mask_params=mask_params, show=True)
     topo.suptitle(f"{'-'.join(group1)} vs {'-'.join(group2)} - Topomap{sig}")
 
     # Make animated topoplot

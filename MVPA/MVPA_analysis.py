@@ -567,8 +567,6 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
                                  alpha=0.05, color='r', tmin=0, tmax=times[-1])
     funcreturn.axes.set_title(f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
 
-    # pd.DataFrame.from_dict({'X_scores': X_score, 'times': times})
-
     # Limit y axis to 0.75 if performance isn't higher
     if X_score.max() > 0.75:
         ymax = 1.0
@@ -582,8 +580,13 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
 
     funcreturn.axes.set_xlabel('Time (sec)')
     funcreturn.axes.set_ylabel(scoring)
+    # Save temporal decoding plot
     plt.savefig(Path(output_dir, 'group' + '_' + fname_string).with_suffix('.png'), dpi=240)
     plt.close()
+
+    # Save temporal decoding plot values so they can be replotted later
+    df = pd.DataFrame.from_dict({'MVPA_scores': X_score, 'times': times})
+    df.to_csv(Path(output_dir, 'group' + '_' + fname_string).with_suffix('.csv'), index=False)
 
     # Make and save group plots
     plots = activity_map_plots(evoked_list, group1=var1_events, group2=var2_events, plot_significance=True)
@@ -648,6 +651,10 @@ def delta_evoked_MVPA(evoked_dict, condition_vars, title):
     funcreturn.axes.set_ylabel(scoring)
     plt.savefig(Path(title).with_suffix('.png'), dpi=240)
     plt.close()
+
+    # Save temporal decoding plot values, so they can be replotted later
+    df = pd.DataFrame.from_dict({'MVPA_scores': X_score, 'times': times})
+    df.to_csv(Path(title).with_suffix('.csv'), index=False)
 
 
 def run_with_cli():

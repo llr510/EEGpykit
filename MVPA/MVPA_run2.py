@@ -403,8 +403,8 @@ if '__main__' in __name__:
 
     # wd = Path(
     #     '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/analysis/MVPA-group_method/MVPA-AB/')
-    # '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/analysis/MVPA-group_method/MVPA-AB/dot/T1vsT2/S-S/dot+S-S+T1_vs_dot+S-S+T2.dat'
-    # '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/analysis/MVPA-group_method/MVPA-AB/dot/T1vsT2/S-S/dot+S-S+T1_vs_dot+S-S+T2.dat'
+    # # '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/analysis/MVPA-group_method/MVPA-AB/dot/T1vsT2/S-S/dot+S-S+T1_vs_dot+S-S+T2.dat'
+    # # '/Volumes/psgroups/AttentionPerceptionLab/AttentionPerceptionLabStudent/PROJECTS/EEG-ATTENTIONAL BLINK/analysis/MVPA-group_method/MVPA-AB/dot/T1vsT2/S-S/dot+S-S+T1_vs_dot+S-S+T2.dat'
     #
     # run_ab_analysis(input_file=Path(wd, 'MVPA_analysis_list_dot.csv').name, output_dir=wd, jobs=1, indiv_plot=False,
     #                 regen_dat=False)

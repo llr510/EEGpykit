@@ -329,6 +329,7 @@ def decodingplot(scores_cond, p_values_cond, times, alpha=0.05, color='r', tmin=
     timeintervals = np.arange(tmin, tmax, 0.1)
     timeintervals = timeintervals.round(decimals=2)
 
+    ax1.set_xlim([tmin, tmax])
     ax1.set_xticks(timeintervals)
 
     for patch in ax1.artists:
@@ -562,8 +563,6 @@ def MVPA_analysis(files, var1_events, var2_events, excluded_events=[], scoring="
     # Better plot with significance
     # Just one output so no significance testing is done. Just set p to 1.0 for every time point.
     pvalues = np.ones(len(times))
-    # funcreturn, _ = decodingplot(scores_cond=X_score.copy(), p_values_cond=pvalues, times=times,
-    #                              alpha=0.05, color='r', tmin=times[0], tmax=times[-1])
     funcreturn, _ = decodingplot(scores_cond=X_score.copy(), p_values_cond=pvalues, times=times,
                                  alpha=0.05, color='r', tmin=0, tmax=times[-1])
     funcreturn.axes.set_title(f"{'-'.join(var1_events)}_vs_{'-'.join(var2_events)} - Sensor space decoding")
@@ -631,8 +630,6 @@ def delta_evoked_MVPA(evoked_dict, condition_vars, title):
 
     # Just one output so no significance testing is done. Just set p to 1.0 for every time point.
     pvalues = np.ones(len(times))
-    # funcreturn, _ = decodingplot(scores_cond=X_score.copy(), p_values_cond=pvalues, times=times,
-    #                              alpha=0.05, color='r', tmin=times[0], tmax=times[-1])
     funcreturn, _ = decodingplot(scores_cond=X_score.copy(), p_values_cond=pvalues, times=times,
                                  alpha=0.05, color='r', tmin=0, tmax=times[-1])
     funcreturn.axes.set_title(f"{title} - Sensor space decoding")

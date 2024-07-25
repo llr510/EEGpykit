@@ -6,7 +6,7 @@ import mne
 import numpy as np
 from mne.stats import ttest_1samp_no_p, spatio_temporal_cluster_1samp_test
 from scipy import stats
-from MVPA.MVPA_analysis import MVPA_analysis, cluster_stats_2samp, activity_map_plots, temporal_decoding, \
+from MVPA.MVPAnalysis import MVPAnalysis, cluster_stats_2samp, activity_map_plots, temporal_decoding, \
     plot_svm_scores
 
 
@@ -61,13 +61,9 @@ def MVPA_group_analysis(groups, var1_events, var2_events, excluded_events=[], sc
     if not Path(output_dir, 'indiv.pickle').exists():
         X_list = []
         for label, group in groups.items():
-            X, y, times = MVPA_analysis(files=group,
-                                        var1_events=var1_events,
-                                        var2_events=var2_events,
-                                        excluded_events=excluded_events, scoring=scoring,
-                                        output_dir=output_dir + '/' + label,
-                                        indiv_plot=False,
-                                        concat_participants=False, jobs=jobs)
+            X, y, times = MVPAnalysis(files=group, var1_events=var1_events, var2_events=var2_events,
+                                      excluded_events=excluded_events, scoring=scoring,
+                                      output_dir=output_dir + '/' + label, indiv_plot=False, jobs=jobs)
             X_list.append(X)
         with open(Path(output_dir, 'indiv.pickle'), 'wb') as f:
             pickle.dump([X_list, times], f)

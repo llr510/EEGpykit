@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import mne
 import numpy as np
 
-from MVPA_analysis import MVPA_analysis, get_filepaths_from_file, delta_evoked_MVPA
+from MVPAnalysis import MVPAnalysis, get_filepaths_from_file, delta_evoked_MVPA
 
 matplotlib.use('Agg')
 plt.rcParams['animation.ffmpeg_path'] = '/users/llr510/.local/share/ffmpeg-downloader/ffmpeg'
@@ -28,17 +28,9 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
     # 1.	No main effect of Session in behavioral
     # a.	What about in the brain?
     # i.	Contrast brain responses in session 1 and session 2
-    MVPA_analysis(files,
-                  var1_events=['sesh_1'],
-                  var2_events=['sesh_2'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir=Path(output_dir, 'Naives/between_session/all/'),
-                  indiv_plot=indiv_plot,
-                  jobs=jobs,
-                  epochs_list=epochs_list,
-                  extra_event_labels=extra
-                  )
+    MVPAnalysis(files, var1_events=['sesh_1'], var2_events=['sesh_2'], excluded_events=['Rate', 'Missed'],
+                scoring="roc_auc", output_dir=Path(output_dir, 'Naives/between_session/all/'), indiv_plot=indiv_plot,
+                epochs_list=epochs_list, extra_event_labels=extra, jobs=jobs)
 
     for resp in ['', '/Correct']:
         for sesh in ['/sesh_1', '/sesh_2']:
@@ -46,17 +38,11 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
             # a.	What about in the brain?
             # ii.	Contrast all normal vs all abnormal in session 1
             # iii.	Contrast all normal vs all abnormal in session 2
-            MVPA_analysis(files,
-                          var1_events=[f'normal{sesh}{resp}'],
-                          var2_events=[f'malignant{sesh}{resp}', f'global{sesh}{resp}'],
-                          excluded_events=['Rate', 'Missed'],
-                          scoring="roc_auc",
-                          output_dir=Path(output_dir, f'Naives{sesh}/normal_vs_abnormal/{resp}'),
-                          indiv_plot=indiv_plot,
-                          jobs=jobs,
-                          epochs_list=epochs_list,
-                          extra_event_labels=extra
-                          )
+            MVPAnalysis(files, var1_events=[f'normal{sesh}{resp}'],
+                        var2_events=[f'malignant{sesh}{resp}', f'global{sesh}{resp}'],
+                        excluded_events=['Rate', 'Missed'], scoring="roc_auc",
+                        output_dir=Path(output_dir, f'Naives{sesh}/normal_vs_abnormal/{resp}'), indiv_plot=indiv_plot,
+                        epochs_list=epochs_list, extra_event_labels=extra, jobs=jobs)
 
             # MVPA_analysis(files,
             #               var1_events=[f'normal{sesh}'],
@@ -84,94 +70,44 @@ def run_training_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         # 2.	There is a main effect of image target present type in behavioral
         # a.	What about the brain?
         # i.	Across both session Obvious vs Priors (in addition just for hits)
-        MVPA_analysis(files,
-                      var1_events=[f'obvious{resp}'],
-                      var2_events=[f'prior{resp}'],
-                      excluded_events=['Rate', 'Missed'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'Naives/across_session/obvious_vs_priors{resp}'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list,
-                      extra_event_labels=extra
-                      )
+        MVPAnalysis(files, var1_events=[f'obvious{resp}'], var2_events=[f'prior{resp}'],
+                    excluded_events=['Rate', 'Missed'], scoring="roc_auc",
+                    output_dir=Path(output_dir, f'Naives/across_session/obvious_vs_priors{resp}'),
+                    indiv_plot=indiv_plot, epochs_list=epochs_list, extra_event_labels=extra, jobs=jobs)
         # ii.	Across both session Contra vs Priors (in addition just for hits)
-        MVPA_analysis(files,
-                      var1_events=[f'contra{resp}'],
-                      var2_events=[f'prior{resp}'],
-                      excluded_events=['Rate', 'Missed'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'Naives/across_session/contra_vs_priors{resp}'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list,
-                      extra_event_labels=extra
-                      )
+        MVPAnalysis(files, var1_events=[f'contra{resp}'], var2_events=[f'prior{resp}'],
+                    excluded_events=['Rate', 'Missed'], scoring="roc_auc",
+                    output_dir=Path(output_dir, f'Naives/across_session/contra_vs_priors{resp}'), indiv_plot=indiv_plot,
+                    epochs_list=epochs_list, extra_event_labels=extra, jobs=jobs)
         # iii.	Across both session Subtle vs Priors (in addition just for hits)
-        MVPA_analysis(files,
-                      var1_events=[f'subtle{resp}'],
-                      var2_events=[f'prior{resp}'],
-                      excluded_events=['Rate', 'Missed'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'Naives/across_session/subtle_vs_priors{resp}'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list,
-                      extra_event_labels=extra
-                      )
+        MVPAnalysis(files, var1_events=[f'subtle{resp}'], var2_events=[f'prior{resp}'],
+                    excluded_events=['Rate', 'Missed'], scoring="roc_auc",
+                    output_dir=Path(output_dir, f'Naives/across_session/subtle_vs_priors{resp}'), indiv_plot=indiv_plot,
+                    epochs_list=epochs_list, extra_event_labels=extra, jobs=jobs)
 
         # 3.	If you want to look at the interaction and image type then you would run these contrasts:
         # i.	Session 1 vs Session 2 just for obvious images (in addition just for hits)
-        MVPA_analysis(files,
-                      var1_events=[f'sesh_1/obvious{resp}'],
-                      var2_events=[f'sesh_2/obvious{resp}'],
-                      excluded_events=['Rate', 'Missed'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'Naives/between_session/Obvious{resp}'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list,
-                      extra_event_labels=extra
-                      )
+        MVPAnalysis(files, var1_events=[f'sesh_1/obvious{resp}'], var2_events=[f'sesh_2/obvious{resp}'],
+                    excluded_events=['Rate', 'Missed'], scoring="roc_auc",
+                    output_dir=Path(output_dir, f'Naives/between_session/Obvious{resp}'), indiv_plot=indiv_plot,
+                    epochs_list=epochs_list, extra_event_labels=extra, jobs=jobs)
         # ii.	Session 1 vs Session 2 just for priors images (in addition just for hits)
-        MVPA_analysis(files,
-                      var1_events=[f'sesh_1/prior{resp}'],
-                      var2_events=[f'sesh_2/prior{resp}'],
-                      excluded_events=['Rate', 'Missed'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'Naives/between_session/Priors{resp}'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list,
-                      extra_event_labels=extra
-                      )
+        MVPAnalysis(files, var1_events=[f'sesh_1/prior{resp}'], var2_events=[f'sesh_2/prior{resp}'],
+                    excluded_events=['Rate', 'Missed'], scoring="roc_auc",
+                    output_dir=Path(output_dir, f'Naives/between_session/Priors{resp}'), indiv_plot=indiv_plot,
+                    epochs_list=epochs_list, extra_event_labels=extra, jobs=jobs)
 
         # iii.	Session 1 vs Session 2 just for contra images (in addition just for hits)
-        MVPA_analysis(files,
-                      var1_events=[f'sesh_1/contra{resp}'],
-                      var2_events=[f'sesh_2/contra{resp}'],
-                      excluded_events=['Rate', 'Missed'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'Naives/between_session/Contra{resp}'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list,
-
-                      extra_event_labels=extra
-                      )
+        MVPAnalysis(files, var1_events=[f'sesh_1/contra{resp}'], var2_events=[f'sesh_2/contra{resp}'],
+                    excluded_events=['Rate', 'Missed'], scoring="roc_auc",
+                    output_dir=Path(output_dir, f'Naives/between_session/Contra{resp}'), indiv_plot=indiv_plot,
+                    epochs_list=epochs_list, extra_event_labels=extra, jobs=jobs)
 
         # iv.	Session 1 vs Session 2 just for subtle images (in addition just for hits)
-        MVPA_analysis(files,
-                      var1_events=[f'sesh_1/subtle{resp}'],
-                      var2_events=[f'sesh_2/subtle{resp}'],
-                      excluded_events=['Rate', 'Missed'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'Naives/between_session/Subtle{resp}'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list,
-                      extra_event_labels=extra
-                      )
+        MVPAnalysis(files, var1_events=[f'sesh_1/subtle{resp}'], var2_events=[f'sesh_2/subtle{resp}'],
+                    excluded_events=['Rate', 'Missed'], scoring="roc_auc",
+                    output_dir=Path(output_dir, f'Naives/between_session/Subtle{resp}'), indiv_plot=indiv_plot,
+                    epochs_list=epochs_list, extra_event_labels=extra, jobs=jobs)
 
 
 def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
@@ -186,17 +122,10 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         # 1.	No main effect of Session in behavioral
         # a.	What about in the brain?
         # ii.	Contrast all normal vs all abnormal
-        MVPA_analysis(files,
-                      var1_events=[f'normal{resp}'],
-                      var2_events=[f'malignant{resp}', f'global{resp}'],
-                      excluded_events=['Rate', 'Missed'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'Rads/normal_vs_abnormal{resp}'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list,
-                      extra_event_labels=extra
-                      )
+        MVPAnalysis(files, var1_events=[f'normal{resp}'], var2_events=[f'malignant{resp}', f'global{resp}'],
+                    excluded_events=['Rate', 'Missed'], scoring="roc_auc",
+                    output_dir=Path(output_dir, f'Rads/normal_vs_abnormal{resp}'), indiv_plot=indiv_plot,
+                    epochs_list=epochs_list, extra_event_labels=extra, jobs=jobs)
 
         # MVPA_analysis(files,
         #               var1_events=[f'normal'],
@@ -224,41 +153,20 @@ def run_rads_analysis(input_file, output_dir, jobs=-1, indiv_plot=False):
         # 2.	There is a main effect of image target present type in behavioral
         # a.	What about the brain?
         # i.	Across both session Obvious vs Priors (in addition just for hits)
-        MVPA_analysis(files,
-                      var1_events=[f'obvious{resp}'],
-                      var2_events=[f'prior{resp}'],
-                      excluded_events=['Rate', 'Missed'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'Rads/obvious_vs_priors{resp}'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list,
-                      extra_event_labels=extra
-                      )
+        MVPAnalysis(files, var1_events=[f'obvious{resp}'], var2_events=[f'prior{resp}'],
+                    excluded_events=['Rate', 'Missed'], scoring="roc_auc",
+                    output_dir=Path(output_dir, f'Rads/obvious_vs_priors{resp}'), indiv_plot=indiv_plot,
+                    epochs_list=epochs_list, extra_event_labels=extra, jobs=jobs)
         # ii.	Across both session Contra vs Priors (in addition just for hits)
-        MVPA_analysis(files,
-                      var1_events=[f'contra{resp}'],
-                      var2_events=[f'prior{resp}'],
-                      excluded_events=['Rate', 'Missed'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'Rads/contra_vs_priors{resp}'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list,
-                      extra_event_labels=extra
-                      )
+        MVPAnalysis(files, var1_events=[f'contra{resp}'], var2_events=[f'prior{resp}'],
+                    excluded_events=['Rate', 'Missed'], scoring="roc_auc",
+                    output_dir=Path(output_dir, f'Rads/contra_vs_priors{resp}'), indiv_plot=indiv_plot,
+                    epochs_list=epochs_list, extra_event_labels=extra, jobs=jobs)
         # iii.	Across both session Subtle vs Priors (in addition just for hits)
-        MVPA_analysis(files,
-                      var1_events=[f'subtle{resp}'],
-                      var2_events=[f'prior{resp}'],
-                      excluded_events=['Rate', 'Missed'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'Rads/subtle_vs_priors{resp}'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list,
-                      extra_event_labels=extra
-                      )
+        MVPAnalysis(files, var1_events=[f'subtle{resp}'], var2_events=[f'prior{resp}'],
+                    excluded_events=['Rate', 'Missed'], scoring="roc_auc",
+                    output_dir=Path(output_dir, f'Rads/subtle_vs_priors{resp}'), indiv_plot=indiv_plot,
+                    epochs_list=epochs_list, extra_event_labels=extra, jobs=jobs)
 
 
 def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False, regen_dat=False):
@@ -292,17 +200,13 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False, regen_dat
         evoked_dict = {}
         for cond in conditions:
             # Perform ordinary MVPA analysis returning dictionary of evoked objects for each condition
-            evoked_dict[cond], X_score, y, times = MVPA_analysis(files,
-                                                                 var1_events=[f'{stim}/{cond}/T1{lag}'],
-                                                                 var2_events=[f'{stim}/{cond}/T2{lag}'],
-                                                                 scoring="roc_auc",
-                                                                 output_dir=Path(output_dir,
-                                                                                 f'{stim}/T1vsT2/{cond}{lag}'),
-                                                                 indiv_plot=indiv_plot,
-                                                                 jobs=jobs,
-                                                                 epochs_list=epochs_list,
-                                                                 extra_event_labels=extra,
-                                                                 overwrite_output=regen_dat)
+            evoked_dict[cond], X_score, y, times = MVPAnalysis(files, var1_events=[f'{stim}/{cond}/T1{lag}'],
+                                                               var2_events=[f'{stim}/{cond}/T2{lag}'],
+                                                               scoring="roc_auc", output_dir=Path(output_dir,
+                                                                                                  f'{stim}/T1vsT2/{cond}{lag}'),
+                                                               indiv_plot=indiv_plot, epochs_list=epochs_list,
+                                                               extra_event_labels=extra, overwrite_output=regen_dat,
+                                                               jobs=jobs)
 
         """
         First analysis
@@ -322,63 +226,37 @@ def run_ab_analysis(input_file, output_dir, jobs=-1, indiv_plot=False, regen_dat
     3. Compare T1 in Block 1 (S-S) & Block 2 (S-NS) vs T1 in Block 4 (NS-NS) & Block 3 (NS-S) 
     (independent of the starting point of T1)
     """
-    MVPA_analysis(files,
-                  var1_events=[f'{stim}/S-S/T1', f'{stim}/S-NS/T1'],
-                  var2_events=[f'{stim}/NS-NS/T1', f'{stim}/NS-S/T1'],
-                  scoring="roc_auc",
-                  output_dir=Path(output_dir, f'{stim}/T1/SvsNS'),
-                  indiv_plot=indiv_plot,
-                  jobs=jobs,
-                  epochs_list=epochs_list,
-                  extra_event_labels=extra,
-                  overwrite_output=regen_dat)
+    MVPAnalysis(files, var1_events=[f'{stim}/S-S/T1', f'{stim}/S-NS/T1'],
+                var2_events=[f'{stim}/NS-NS/T1', f'{stim}/NS-S/T1'], scoring="roc_auc",
+                output_dir=Path(output_dir, f'{stim}/T1/SvsNS'), indiv_plot=indiv_plot, epochs_list=epochs_list,
+                extra_event_labels=extra, overwrite_output=regen_dat, jobs=jobs)
 
     """
     First analysis
     4. Compare T2 in Block 1 (S-S) to T2 in Block 4 (NS-NS) (collapsed across lags and for each lag separately)
     """
     for lag in lags:
-        MVPA_analysis(files,
-                      var1_events=[f'{stim}/S-S/T2{lag}'],
-                      var2_events=[f'{stim}/NS-NS/T2{lag}'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'{stim}/T2/S-SvsNS-NS{lag}'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list,
-                      extra_event_labels=extra,
-                      overwrite_output=regen_dat)
+        MVPAnalysis(files, var1_events=[f'{stim}/S-S/T2{lag}'], var2_events=[f'{stim}/NS-NS/T2{lag}'],
+                    scoring="roc_auc", output_dir=Path(output_dir, f'{stim}/T2/S-SvsNS-NS{lag}'), indiv_plot=indiv_plot,
+                    epochs_list=epochs_list, extra_event_labels=extra, overwrite_output=regen_dat, jobs=jobs)
 
     """
     Second analysis
     3.	Compare T2 in Block 2 (S-NS) to T2 in Block 4 (NS-NS) (collapsed across lags and for each lag separately)
     """
     for lag in lags:
-        MVPA_analysis(files,
-                      var1_events=[f'{stim}/S-NS/T2{lag}'],
-                      var2_events=[f'{stim}/NS-NS/T2{lag}'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'{stim}/T2/S-NSvsNS-NS{lag}'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list,
-                      extra_event_labels=extra,
-                      overwrite_output=regen_dat)
+        MVPAnalysis(files, var1_events=[f'{stim}/S-NS/T2{lag}'], var2_events=[f'{stim}/NS-NS/T2{lag}'],
+                    scoring="roc_auc", output_dir=Path(output_dir, f'{stim}/T2/S-NSvsNS-NS{lag}'),
+                    indiv_plot=indiv_plot, epochs_list=epochs_list, extra_event_labels=extra,
+                    overwrite_output=regen_dat, jobs=jobs)
     """
     Second analysis
     4.	Compare T2 in Block 3 (NS-S) to T2 in Block 1 (S-S) (collapsed across lags and for each lag separately)
     """
     for lag in lags:
-        MVPA_analysis(files,
-                      var1_events=[f'{stim}/NS-S/T2{lag}'],
-                      var2_events=[f'{stim}/S-S/T2{lag}'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'{stim}/T2/NS-SvsS-S{lag}'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list,
-                      extra_event_labels=extra,
-                      overwrite_output=regen_dat)
+        MVPAnalysis(files, var1_events=[f'{stim}/NS-S/T2{lag}'], var2_events=[f'{stim}/S-S/T2{lag}'], scoring="roc_auc",
+                    output_dir=Path(output_dir, f'{stim}/T2/NS-SvsS-S{lag}'), indiv_plot=indiv_plot,
+                    epochs_list=epochs_list, extra_event_labels=extra, overwrite_output=regen_dat, jobs=jobs)
 
 
 def rename_nested_dirs(wd, target='Correct', new='HITS_vs_TNEGS', reverse=False):

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import mne
 import numpy as np
 
-from MVPA_analysis import MVPA_analysis, get_filepaths_from_file
+from MVPAnalysis import MVPAnalysis, get_filepaths_from_file
 from MVPA_utils import group_MVPA_and_plot
 
 matplotlib.use('Agg')
@@ -30,37 +30,26 @@ def run_AB_analysis(output_dir, jobs=-1, indiv_plot=True):
             epochs = mne.read_epochs(file)
             epochs_list.append(epochs)
 
-        MVPA_analysis(files,
-                      var1_events=[f'{stim}/T2/S-S'],
-                      var2_events=[f'{stim}/T2/NS-NS'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'{stim}/T2_S-SvsNS-NS/all_lags'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list)
+        MVPAnalysis(files, var1_events=[f'{stim}/T2/S-S'], var2_events=[f'{stim}/T2/NS-NS'], scoring="roc_auc",
+                    output_dir=Path(output_dir, f'{stim}/T2_S-SvsNS-NS/all_lags'), indiv_plot=indiv_plot,
+                    epochs_list=epochs_list, jobs=jobs)
 
         out = {}
         for condition in ['S-S', 'NS-NS']:
-            out[f'{condition}'], _, times = MVPA_analysis(files,
-                                                          var1_events=[f'{stim}/T1/{condition}'],
-                                                          var2_events=[f'{stim}/T2/{condition}'],
-                                                          scoring="roc_auc",
-                                                          output_dir=Path(output_dir,
-                                                                          f'{stim}/T1vsT2_{condition}/all_lags'),
-                                                          indiv_plot=indiv_plot,
-                                                          jobs=jobs,
-                                                          epochs_list=epochs_list)
+            out[f'{condition}'], _, times = MVPAnalysis(files, var1_events=[f'{stim}/T1/{condition}'],
+                                                        var2_events=[f'{stim}/T2/{condition}'], scoring="roc_auc",
+                                                        output_dir=Path(output_dir,
+                                                                        f'{stim}/T1vsT2_{condition}/all_lags'),
+                                                        indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
             for lag in [1, 2, 3, 4]:
-                out[f'{condition}_{lag}'], _, times = MVPA_analysis(files,
-                                                                    var1_events=[f'{stim}/T1/{condition}/lag{lag}'],
-                                                                    var2_events=[f'{stim}/T2/{condition}/lag{lag}'],
-                                                                    scoring="roc_auc",
-                                                                    output_dir=Path(output_dir,
-                                                                                    f'{stim}/T1vsT2_{condition}/lag{lag}'),
-                                                                    indiv_plot=indiv_plot,
-                                                                    jobs=jobs,
-                                                                    epochs_list=epochs_list)
+                out[f'{condition}_{lag}'], _, times = MVPAnalysis(files,
+                                                                  var1_events=[f'{stim}/T1/{condition}/lag{lag}'],
+                                                                  var2_events=[f'{stim}/T2/{condition}/lag{lag}'],
+                                                                  scoring="roc_auc", output_dir=Path(output_dir,
+                                                                                                     f'{stim}/T1vsT2_{condition}/lag{lag}'),
+                                                                  indiv_plot=indiv_plot, epochs_list=epochs_list,
+                                                                  jobs=jobs)
 
         group_MVPA_and_plot([out[f'S-S'], out[f'NS-NS']], labels=['S-S', 'NS-NS'],
                             var1_events=[f'S-S'],
@@ -78,24 +67,14 @@ def run_AB_analysis(output_dir, jobs=-1, indiv_plot=True):
                                 jobs=jobs)
 
             # T2/SS vs T2/NS-NS for each lag
-            MVPA_analysis(files,
-                          var1_events=[f'{stim}/T2/S-S/lag{lag}'],
-                          var2_events=[f'{stim}/T2/NS-NS/lag{lag}'],
-                          scoring="roc_auc",
-                          output_dir=Path(output_dir, f'{stim}/T2_S-SvsNS-NS/lag{lag}'),
-                          indiv_plot=indiv_plot,
-                          jobs=jobs,
-                          epochs_list=epochs_list)
+            MVPAnalysis(files, var1_events=[f'{stim}/T2/S-S/lag{lag}'], var2_events=[f'{stim}/T2/NS-NS/lag{lag}'],
+                        scoring="roc_auc", output_dir=Path(output_dir, f'{stim}/T2_S-SvsNS-NS/lag{lag}'),
+                        indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
         # T1/SS vs T1/NS-NS
-        MVPA_analysis(files,
-                      var1_events=[f'{stim}/T1/S-S'],
-                      var2_events=[f'{stim}/T1/NS-NS'],
-                      scoring="roc_auc",
-                      output_dir=Path(output_dir, f'{stim}/T1_S-SvsNS-NS/all_lags'),
-                      indiv_plot=indiv_plot,
-                      jobs=jobs,
-                      epochs_list=epochs_list)
+        MVPAnalysis(files, var1_events=[f'{stim}/T1/S-S'], var2_events=[f'{stim}/T1/NS-NS'], scoring="roc_auc",
+                    output_dir=Path(output_dir, f'{stim}/T1_S-SvsNS-NS/all_lags'), indiv_plot=indiv_plot,
+                    epochs_list=epochs_list, jobs=jobs)
 
         '''T1 to T2 S-S across lags'''
         '''T1 to T2 NS-NS across lags'''
@@ -116,31 +95,15 @@ def run_training_analysis(output_dir, jobs=-1, indiv_plot=True):
         epochs = mne.read_epochs(file)
         epochs_list.append(epochs)
 
-    MVPA_analysis(files,
-                  var1_events=['sesh_1'],
-                  var2_events=['sesh_2'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir=Path(output_dir,
-                                  'naives/across-session/all/'),
-                  indiv_plot=indiv_plot,
-                  jobs=jobs,
-                  epochs_list=epochs_list,
-                  concat_participants=True
-                  )
+    MVPAnalysis(files, var1_events=['sesh_1'], var2_events=['sesh_2'], excluded_events=['Rate', 'Missed'],
+                scoring="roc_auc", output_dir=Path(output_dir,
+                                                   'naives/across-session/all/'), indiv_plot=indiv_plot,
+                epochs_list=epochs_list, jobs=jobs)
 
-    MVPA_analysis(files,
-                  var1_events=['sesh_1/obvious'],
-                  var2_events=['sesh_2/obvious'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir=Path(output_dir,
-                                  'naives/across-session/all/'),
-                  indiv_plot=indiv_plot,
-                  jobs=jobs,
-                  epochs_list=epochs_list,
-                  concat_participants=True
-                  )
+    MVPAnalysis(files, var1_events=['sesh_1/obvious'], var2_events=['sesh_2/obvious'],
+                excluded_events=['Rate', 'Missed'], scoring="roc_auc", output_dir=Path(output_dir,
+                                                                                       'naives/across-session/all/'),
+                indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
 
 
@@ -157,40 +120,22 @@ def run_training_analysis(output_dir, jobs=-1, indiv_plot=True):
         epochs_list.append(epochs)
 
     X_dict['NormAbnorm_s1'], \
-    y, times = MVPA_analysis(files,
-                             var1_events=['Normal'],
-                             var2_events=['Obvious', 'Subtle', 'Global'],
-                             excluded_events=['Rate', 'Missed'],
-                             scoring="roc_auc",
-                             output_dir=Path(output_dir,
-                                             'naives/pre-training/normal_vs_abnormal/'),
-                             indiv_plot=indiv_plot,
-                             jobs=jobs,
-                             epochs_list=epochs_list)
+    y, times = MVPAnalysis(files, var1_events=['Normal'], var2_events=['Obvious', 'Subtle', 'Global'],
+                           excluded_events=['Rate', 'Missed'], scoring="roc_auc", output_dir=Path(output_dir,
+                                                                                                  'naives/pre-training/normal_vs_abnormal/'),
+                           indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
     X_dict['NormMalig_s1'], \
-    y, times = MVPA_analysis(files,
-                             var1_events=['Normal'],
-                             var2_events=['Obvious', 'Subtle'],
-                             excluded_events=['Rate', 'Missed'],
-                             scoring="roc_auc",
-                             output_dir=Path(output_dir,
-                                             'naives/pre-training/normal_vs_malignant/'),
-                             indiv_plot=indiv_plot,
-                             jobs=jobs,
-                             epochs_list=epochs_list)
+    y, times = MVPAnalysis(files, var1_events=['Normal'], var2_events=['Obvious', 'Subtle'],
+                           excluded_events=['Rate', 'Missed'], scoring="roc_auc", output_dir=Path(output_dir,
+                                                                                                  'naives/pre-training/normal_vs_malignant/'),
+                           indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
     X_dict['NormGlobal_s1'], \
-    y, times = MVPA_analysis(files,
-                             var1_events=['Normal'],
-                             var2_events=['Global'],
-                             excluded_events=['Rate', 'Missed'],
-                             scoring="roc_auc",
-                             output_dir=Path(output_dir,
-                                             'naives/pre-training/normal_vs_global/'),
-                             indiv_plot=indiv_plot,
-                             jobs=jobs,
-                             epochs_list=epochs_list)
+    y, times = MVPAnalysis(files, var1_events=['Normal'], var2_events=['Global'], excluded_events=['Rate', 'Missed'],
+                           scoring="roc_auc", output_dir=Path(output_dir,
+                                                              'naives/pre-training/normal_vs_global/'),
+                           indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
     """
     Session 2 Analysis
@@ -203,40 +148,22 @@ def run_training_analysis(output_dir, jobs=-1, indiv_plot=True):
         epochs_list.append(epochs)
 
     X_dict['NormAbnorm_s2'], \
-    y, times = MVPA_analysis(files,
-                             var1_events=['Normal'],
-                             var2_events=['Obvious', 'Subtle', 'Global'],
-                             excluded_events=['Rate', 'Missed'],
-                             scoring="roc_auc",
-                             output_dir=Path(output_dir,
-                                             'naives/post-training/normal_vs_abnormal/'),
-                             indiv_plot=indiv_plot,
-                             jobs=jobs,
-                             epochs_list=epochs_list)
+    y, times = MVPAnalysis(files, var1_events=['Normal'], var2_events=['Obvious', 'Subtle', 'Global'],
+                           excluded_events=['Rate', 'Missed'], scoring="roc_auc", output_dir=Path(output_dir,
+                                                                                                  'naives/post-training/normal_vs_abnormal/'),
+                           indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
     X_dict['NormMalig_s2'], \
-    y, times = MVPA_analysis(files,
-                             var1_events=['Normal'],
-                             var2_events=['Obvious', 'Subtle'],
-                             excluded_events=['Rate', 'Missed'],
-                             scoring="roc_auc",
-                             output_dir=Path(output_dir,
-                                             'naives/post-training/normal_vs_malignant/'),
-                             indiv_plot=indiv_plot,
-                             jobs=jobs,
-                             epochs_list=epochs_list)
+    y, times = MVPAnalysis(files, var1_events=['Normal'], var2_events=['Obvious', 'Subtle'],
+                           excluded_events=['Rate', 'Missed'], scoring="roc_auc", output_dir=Path(output_dir,
+                                                                                                  'naives/post-training/normal_vs_malignant/'),
+                           indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
     X_dict['NormGlobal_s2'], \
-    y, times = MVPA_analysis(files,
-                             var1_events=['Normal'],
-                             var2_events=['Global'],
-                             excluded_events=['Rate', 'Missed'],
-                             scoring="roc_auc",
-                             output_dir=Path(output_dir,
-                                             'naives/post-training/normal_vs_global/'),
-                             indiv_plot=indiv_plot,
-                             jobs=jobs,
-                             epochs_list=epochs_list)
+    y, times = MVPAnalysis(files, var1_events=['Normal'], var2_events=['Global'], excluded_events=['Rate', 'Missed'],
+                           scoring="roc_auc", output_dir=Path(output_dir,
+                                                              'naives/post-training/normal_vs_global/'),
+                           indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
     """
     Session Both Analysis
@@ -271,68 +198,34 @@ def run_rads_analysis(output_dir, jobs=-1, indiv_plot=True):
         epochs = mne.read_epochs(file)
         epochs_list.append(epochs)
 
-    MVPA_analysis(files,
-                  var1_events=['Normal'],
-                  var2_events=['Obvious', 'Subtle', 'Global'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir=Path(output_dir,
-                                  'radiologists/normal_vs_abnormal/'),
-                  indiv_plot=indiv_plot,
-                  jobs=jobs,
-                  epochs_list=epochs_list)
+    MVPAnalysis(files, var1_events=['Normal'], var2_events=['Obvious', 'Subtle', 'Global'],
+                excluded_events=['Rate', 'Missed'], scoring="roc_auc", output_dir=Path(output_dir,
+                                                                                       'radiologists/normal_vs_abnormal/'),
+                indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
-    MVPA_analysis(files,
-                  var1_events=['resp_Normal/Correct'],
-                  var2_events=['resp_Abnormal/Correct'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir=Path(output_dir,
-                                  'radiologists/normal_vs_abnormal_hits-tnegs/'),
-                  indiv_plot=indiv_plot,
-                  jobs=jobs,
-                  epochs_list=epochs_list)
+    MVPAnalysis(files, var1_events=['resp_Normal/Correct'], var2_events=['resp_Abnormal/Correct'],
+                excluded_events=['Rate', 'Missed'], scoring="roc_auc", output_dir=Path(output_dir,
+                                                                                       'radiologists/normal_vs_abnormal_hits-tnegs/'),
+                indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
-    MVPA_analysis(files,
-                  var1_events=['Normal'],
-                  var2_events=['Obvious', 'Subtle'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir=Path(output_dir,
-                                  'radiologists/normal_vs_malignant/'),
-                  indiv_plot=indiv_plot,
-                  jobs=jobs,
-                  epochs_list=epochs_list)
+    MVPAnalysis(files, var1_events=['Normal'], var2_events=['Obvious', 'Subtle'], excluded_events=['Rate', 'Missed'],
+                scoring="roc_auc", output_dir=Path(output_dir,
+                                                   'radiologists/normal_vs_malignant/'), indiv_plot=indiv_plot,
+                epochs_list=epochs_list, jobs=jobs)
 
-    MVPA_analysis(files,
-                  var1_events=['Normal'],
-                  var2_events=['Global'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir=Path(output_dir, 'radiologists/normal_vs_global/'),
-                  indiv_plot=indiv_plot,
-                  jobs=jobs,
-                  epochs_list=epochs_list)
+    MVPAnalysis(files, var1_events=['Normal'], var2_events=['Global'], excluded_events=['Rate', 'Missed'],
+                scoring="roc_auc", output_dir=Path(output_dir, 'radiologists/normal_vs_global/'), indiv_plot=indiv_plot,
+                epochs_list=epochs_list, jobs=jobs)
 
-    MVPA_analysis(files,
-                  var1_events=['Normal/resp_Normal'],
-                  var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir=Path(output_dir, 'radiologists/normal_vs_malignant_hits-tnegs/'),
-                  indiv_plot=indiv_plot,
-                  jobs=jobs,
-                  epochs_list=epochs_list)
+    MVPAnalysis(files, var1_events=['Normal/resp_Normal'],
+                var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'], excluded_events=['Rate', 'Missed'],
+                scoring="roc_auc", output_dir=Path(output_dir, 'radiologists/normal_vs_malignant_hits-tnegs/'),
+                indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
-    MVPA_analysis(files,
-                  var1_events=['Normal/resp_Normal'],
-                  var2_events=['Global/resp_Abnormal'],
-                  excluded_events=['Rate', 'Missed'],
-                  scoring="roc_auc",
-                  output_dir=Path(output_dir, 'radiologists/normal_vs_global_hits-tnegs/'),
-                  indiv_plot=indiv_plot,
-                  jobs=jobs,
-                  epochs_list=epochs_list)
+    MVPAnalysis(files, var1_events=['Normal/resp_Normal'], var2_events=['Global/resp_Abnormal'],
+                excluded_events=['Rate', 'Missed'], scoring="roc_auc",
+                output_dir=Path(output_dir, 'radiologists/normal_vs_global_hits-tnegs/'), indiv_plot=indiv_plot,
+                epochs_list=epochs_list, jobs=jobs)
 
 
 def run_training_hits_tnegs(output_dir, jobs=-1, indiv_plot=True):
@@ -352,40 +245,23 @@ def run_training_hits_tnegs(output_dir, jobs=-1, indiv_plot=True):
         epochs_list.append(epochs)
 
     X_dict['NormAbnorm_s1'], \
-    y, times = MVPA_analysis(files,
-                             var1_events=['resp_Normal/Correct'],
-                             var2_events=['resp_Abnormal/Correct'],
-                             excluded_events=['Rate', 'Missed'],
-                             scoring="roc_auc",
-                             output_dir=Path(output_dir,
-                                             'naives/pre-training_hits-tnegs/normal_vs_abnormal/'),
-                             indiv_plot=False,
-                             jobs=jobs,
-                             epochs_list=epochs_list)
+    y, times = MVPAnalysis(files, var1_events=['resp_Normal/Correct'], var2_events=['resp_Abnormal/Correct'],
+                           excluded_events=['Rate', 'Missed'], scoring="roc_auc", output_dir=Path(output_dir,
+                                                                                                  'naives/pre-training_hits-tnegs/normal_vs_abnormal/'),
+                           indiv_plot=False, epochs_list=epochs_list, jobs=jobs)
 
     X_dict['NormMalig_s1'], \
-    y, times = MVPA_analysis(files,
-                             var1_events=['Normal/resp_Normal'],
-                             var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
-                             excluded_events=['Rate', 'Missed'],
-                             scoring="roc_auc",
-                             output_dir=Path(output_dir,
-                                             'naives/pre-training_hits-tnegs/normal_vs_malignant/'),
-                             indiv_plot=indiv_plot,
-                             jobs=jobs,
-                             epochs_list=epochs_list)
+    y, times = MVPAnalysis(files, var1_events=['Normal/resp_Normal'],
+                           var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
+                           excluded_events=['Rate', 'Missed'], scoring="roc_auc", output_dir=Path(output_dir,
+                                                                                                  'naives/pre-training_hits-tnegs/normal_vs_malignant/'),
+                           indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
     X_dict['NormGlobal_s1'], \
-    y, times = MVPA_analysis(files,
-                             var1_events=['Normal/resp_Normal'],
-                             var2_events=['Global/resp_Abnormal'],
-                             excluded_events=['Rate', 'Missed'],
-                             scoring="roc_auc",
-                             output_dir=Path(output_dir,
-                                             'naives/pre-training_hits-tnegs/normal_vs_global/'),
-                             indiv_plot=indiv_plot,
-                             jobs=jobs,
-                             epochs_list=epochs_list)
+    y, times = MVPAnalysis(files, var1_events=['Normal/resp_Normal'], var2_events=['Global/resp_Abnormal'],
+                           excluded_events=['Rate', 'Missed'], scoring="roc_auc", output_dir=Path(output_dir,
+                                                                                                  'naives/pre-training_hits-tnegs/normal_vs_global/'),
+                           indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
     """
     Session 2 Analysis
@@ -398,40 +274,23 @@ def run_training_hits_tnegs(output_dir, jobs=-1, indiv_plot=True):
         epochs_list.append(epochs)
 
     X_dict['NormAbnorm_s2'], \
-    y, times = MVPA_analysis(files,
-                             var1_events=['resp_Normal/Correct'],
-                             var2_events=['resp_Abnormal/Correct'],
-                             excluded_events=['Rate', 'Missed'],
-                             scoring="roc_auc",
-                             output_dir=Path(output_dir,
-                                             'naives/post-training_hits-tnegs/normal_vs_abnormal/'),
-                             indiv_plot=False,
-                             jobs=jobs,
-                             epochs_list=epochs_list)
+    y, times = MVPAnalysis(files, var1_events=['resp_Normal/Correct'], var2_events=['resp_Abnormal/Correct'],
+                           excluded_events=['Rate', 'Missed'], scoring="roc_auc", output_dir=Path(output_dir,
+                                                                                                  'naives/post-training_hits-tnegs/normal_vs_abnormal/'),
+                           indiv_plot=False, epochs_list=epochs_list, jobs=jobs)
 
     X_dict['NormMalig_s2'], \
-    y, times = MVPA_analysis(files,
-                             var1_events=['Normal/resp_Normal'],
-                             var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
-                             excluded_events=['Rate', 'Missed'],
-                             scoring="roc_auc",
-                             output_dir=Path(output_dir,
-                                             'naives/post-training_hits-tnegs/normal_vs_malignant/'),
-                             indiv_plot=indiv_plot,
-                             jobs=jobs,
-                             epochs_list=epochs_list)
+    y, times = MVPAnalysis(files, var1_events=['Normal/resp_Normal'],
+                           var2_events=['Obvious/resp_Abnormal', 'Subtle/resp_Abnormal'],
+                           excluded_events=['Rate', 'Missed'], scoring="roc_auc", output_dir=Path(output_dir,
+                                                                                                  'naives/post-training_hits-tnegs/normal_vs_malignant/'),
+                           indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
     X_dict['NormGlobal_s2'], \
-    y, times = MVPA_analysis(files,
-                             var1_events=['Normal/resp_Normal'],
-                             var2_events=['Global/resp_Abnormal'],
-                             excluded_events=['Rate', 'Missed'],
-                             scoring="roc_auc",
-                             output_dir=Path(output_dir,
-                                             'naives/post-training_hits-tnegs/normal_vs_global/'),
-                             indiv_plot=indiv_plot,
-                             jobs=jobs,
-                             epochs_list=epochs_list)
+    y, times = MVPAnalysis(files, var1_events=['Normal/resp_Normal'], var2_events=['Global/resp_Abnormal'],
+                           excluded_events=['Rate', 'Missed'], scoring="roc_auc", output_dir=Path(output_dir,
+                                                                                                  'naives/post-training_hits-tnegs/normal_vs_global/'),
+                           indiv_plot=indiv_plot, epochs_list=epochs_list, jobs=jobs)
 
     """
     Session Both Analysis
@@ -461,27 +320,13 @@ def run_training_hits_tnegs(output_dir, jobs=-1, indiv_plot=True):
 def run_pickle_rads(jobs=-1):
     files, extra = get_filepaths_from_file('')
 
-    MVPA_analysis(files,
-                  var1_events=['Normal'],
-                  var2_events=['Obvious', 'Subtle'],
-                  excluded_events=['Rate'],  # , 'Missed'
-                  scoring="roc_auc",
-                  output_dir='../analyses/rads_data_pkls/normal_v_abnormal/case_balanced',
-                  indiv_plot=False,
-                  extra_event_labels=extra,
-                  pickle_ouput=True,
-                  jobs=jobs)
+    MVPAnalysis(files, var1_events=['Normal'], var2_events=['Obvious', 'Subtle'], excluded_events=['Rate'],
+                scoring="roc_auc", output_dir='../analyses/rads_data_pkls/normal_v_abnormal/case_balanced',
+                indiv_plot=False, extra_event_labels=extra, jobs=jobs)
 
-    MVPA_analysis(files,
-                  var1_events=['Normal'],
-                  var2_events=['Global'],
-                  excluded_events=['Rate'],  # , 'Missed'
-                  scoring="roc_auc",
-                  output_dir='../analyses/rads_data_pkls/normal_v_global/case_imbalanced',
-                  indiv_plot=False,
-                  extra_event_labels=extra,
-                  pickle_ouput=True,
-                  jobs=jobs)
+    MVPAnalysis(files, var1_events=['Normal'], var2_events=['Global'], excluded_events=['Rate'], scoring="roc_auc",
+                output_dir='../analyses/rads_data_pkls/normal_v_global/case_imbalanced', indiv_plot=False,
+                extra_event_labels=extra, jobs=jobs)
 
 
 if '__main__' in __name__:

@@ -16,6 +16,80 @@ allowing for the discrimination between activity in different experimental condi
 This project has only been tested with our EEG setup and needs, and several of the analysis scripts are written for specific projects.
 Therefore, your mileage may vary when using EEGpykit for your own uses!
 
+## How to Use - Preprocessor
+- See the EEG Analysis Workshop 2024 presentation in documents/ for a different set of usage instructions
+
+### Ingredients
+#### Types of files you should have already:
+- **Raw EEG** data files (.fif or .cnt)
+- **Trigger file** (.trg)
+- **Behavioural data** (.csv)
+- **Montage file** (.xyz)
+
+#### Files you need to create:
+- **Participant list** (.csv) file with the header: 
+
+| ppt_num | data_path        | extra_events_path | pid  | EOG_channel | status | ref_channel | raw_format   |
+|:--------|:-----------------|:------------------|------|:------------|:-------|:------------|:-------------|
+| 1       | path/to/data/dir | path/to/.csv      | PPT1 | e.g VEOG    |        | e.g Cz      | .cnt or .fif |
+
+- **trigger labels** (.csv)
+	- This file describes all the triggers in the EEG data, what their numerical value refers to, and whether you want to keep them
+	- Often you will want to create new labels and events based on the participant's behavioural data later, so this file will usually be superceded by that one
+	- file with the header: 
+
+| label          | value | active |
+|:---------------|:------|:-------|
+| event1/view    | 11    | 1      |
+| event2/view    | 12    | 1      |
+| event1/respond | 21    | 1      |
+| event2/respond | 22    | 1      |
+
+- A preprocessing **output directory**
+	- e.g 'output_directory/'
+- **extra_events** (.csv)
+	- a headerless csv with two columns
+		- event labels (column 1)
+			- multiple labels can be assigned to a single event when separated by a '/'
+		- event start time (column 2)
+			- these need to match trigger times in the .trg file
+		- a third column with event end time may also be allowable
+	- this file allows you to create more events based on behavioural data than you could otherwise have with just the trigger file
+	- make one for each data recording and give the path to it in the extra_events_path column of the Participant list .csv
+
+### Starting the preprocessing gui:
+- Assuming you already installed the modules listed in requirement.txt:
+```sh
+cd /path/to/EEGpykit/ 
+python cli.py
+```
+- A window should open with the following entry fields:
+  - Participant List File
+    - path to **Participant list**
+  - Output DB: 
+    - path to **output directory**
+  - Trigger labels:
+    - path to **trigger labels**
+  - tmin: 
+    - negative start time of epoch baseline in seconds
+  - bmax:
+    - end time of epoch baseline (usually 0) in seconds
+  - tmax: 
+    - end time of epoch in seconds
+  - additional_events_fname
+    - leave this blank if using extra_events_path column in **Participant list** file
+- Click submit to start preprocessing data
+
+## How to use - MVPAnalysis
+```python
+from MVPA.MVPAnalysis import MVPAnalysis
+
+MVPAnalysis(files, var1_events=[f'obvious'], var2_events=[f'prior'],
+            excluded_events=['Rate', 'Missed'], scoring="roc_auc",
+            output_dir=Path(output_dir, f'Naives/across_session/obvious_vs_priors'),
+            indiv_plot=False, epochs_list=epochs_list, extra_event_labels=extra, jobs=-1)
+```
+
 ## Main Scripts
 ### preprocessor.py
 - Imports read_antcnt to read in data from eeg_data/
@@ -47,8 +121,8 @@ Therefore, your mileage may vary when using EEGpykit for your own uses!
 - Main analysis is Spatio Temporal Clustering
 
 ## MVPA
-### MVPA_analysis.py
-EEGpykit - MVPA Analysis Outline
+### MVPAnalysis.py
+> #### MVPA Analysis Outline
 > 1. Load preprocessed and epoched EEG data
 >    * Each individual’s data is a 3d array of epochs x channels x times
 >    * Filter data by matching epochs that belong to two different conditions
@@ -127,7 +201,7 @@ make
 # Contact
 Lyndon Rakusen - [mail@lyndonrakusen.com](mailto:mail@lyndonrakusen.com)
 
-Project Link: https://github.com/llr510/EEGpykit
+Project Link: [github.com/llr510/EEGpykit](https://github.com/llr510/EEGpykit)
 
 # Acknowledgments
 - Nolan H., Whelan R. and Reilly RB. for inventing the FASTER protocol

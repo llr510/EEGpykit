@@ -81,13 +81,18 @@ python cli.py
 - Click submit to start preprocessing data
 
 ## How to use - MVPAnalysis
+- Below is an example usage of the MVPAnalysis, to compare epochs between two stimuli presentation conditions:
 ```python
+from pathlib import Path
 from MVPA.MVPAnalysis import MVPAnalysis
 
-MVPAnalysis(files, var1_events=[f'obvious'], var2_events=[f'prior'],
+files = ['path/to/ppt1.epo.fif', 'path/to/ppt2.epo.fif', 'path/to/ppt3.epo.fif']
+output_dir = ['path/to/analysis/output/']
+
+MVPAnalysis(files, var1_events=['obvious'], var2_events=['prior'],
             excluded_events=['Rate', 'Missed'], scoring="roc_auc",
-            output_dir=Path(output_dir, f'Naives/across_session/obvious_vs_priors'),
-            indiv_plot=False, epochs_list=epochs_list, extra_event_labels=extra, jobs=-1)
+            output_dir=Path(output_dir, 'Naives/across_session/obvious_vs_priors'),
+            indiv_plot=False, jobs=-1)
 ```
 
 ## Main Scripts

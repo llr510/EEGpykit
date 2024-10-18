@@ -27,7 +27,11 @@ from mne_faster import (find_bad_channels, find_bad_epochs,
                         find_bad_components, find_bad_channels_in_epochs)
 
 from utils.dialogue_box import dialogue_window
-from utils.read_antcnt import read_raw_antcnt, read_events_trg
+try:
+    from utils.read_antcnt import read_raw_antcnt, read_events_trg
+except ModuleNotFoundError:
+    read_raw_antcnt = None
+    read_events_trg = None
 
 sys.path.append('utils')
 

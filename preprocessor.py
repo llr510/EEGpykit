@@ -408,7 +408,10 @@ class EEG_Participant:
         keep_original_events : bool
             If false original triggers will be replaced with the new ones.
         """
-        df = pd.read_csv(event_file, names=['label', 'start', 'end'])
+        if isinstance(event_file, pd.DataFrame):
+            df = event_file
+        else:
+            df = pd.read_csv(event_file, names=['label', 'start', 'end'])
         my_annot = mne.Annotations(onset=df['start'], duration=df['end'], description=df['label'])
         self.RAW.set_annotations(my_annot)
         if keep_original_events:

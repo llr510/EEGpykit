@@ -52,7 +52,7 @@ def recode_label(event, extra_labels=None, sep='/'):
 
     @param extra_labels: list of extra labels to join with
     @param event: epochs.event_id.items
-    @param sep: character that seperates labels
+    @param sep: character that separates labels
     @return: tags
     """
     tags = sep.join([event] + extra_labels)
@@ -80,8 +80,8 @@ def plot_svm_scores(times, scores, scoring="roc_auc", title='', filename='scores
     """
     Make a basic line plot of SVM accuracy
 
-    @param times: array of samples on y axis
-    @param scores: array of accuracy scores on x axis
+    @param times: array of samples on y-axis
+    @param scores: array of accuracy scores on x-axis
     @param scoring: scoring method (sklearn.metrics.get_scorer_names())
     @param title: title of plot
     """
@@ -171,12 +171,11 @@ def cluster_stats_2samp(X_list, n_jobs=-1):
     n_jobs : int
         The number of parallel processors.
     """
-
     # assert len(X_list[0]) == len(X_list[1])
     n_subjects = len(X_list[0])
     X_list = [np.array(X) for X in X_list]
     X_list = [X[:, :, None] if X.ndim == 2 else X for X in X_list]
-    # this functions gets the t-values and performs a cluster permutation test on them to determine p-values.
+    # this function gets the t-values and performs a cluster permutation test on them to determine p-values.
     p_threshold = 0.05
     # Repeated measures t-test so degrees of freedom is n-1
     t_threshold = -stats.distributions.t.ppf(p_threshold / 2., n_subjects - 1)

@@ -1,17 +1,20 @@
+from pathlib import Path
+
 import mne
 from mne import io
 
 
-def read_stephens_data(header_path, montage_path=None, verbose=False, ref_channel='Cz'):
+def read_stephens_data(header_path, montage_path=None, ref_channel='Cz', verbose=False):
     """
-    Custom data loading function for data collected with BrainVision and a custom montage
+    Custom data loading function for data collected with BrainVision and a custom montage.
 
-    @param header_path:
-    @param montage_path:
-    @param verbose:
-    @param ref_channel:
-    @return:
+    @param header_path: path to brainvision .vhdr file
+    @param montage_path: optional path to custom EEG electrode mapping file
+    @param ref_channel: name of online reference channel used during data collection
+    @param verbose: whether to block and display raw data or not
+    @return: raw data, events, channel information
     """
+    # If an eeg data file doesn't load via the header file there's a chance that a file has been moved and renamed
     raw = io.read_raw_brainvision(header_path, preload=True)
     raw.set_channel_types({'VEOG': 'eog', 'Photo': 'misc'})
     # In the custom montage the equivalent of PO2 was mysteriously named P20...
@@ -32,9 +35,10 @@ def read_stephens_data(header_path, montage_path=None, verbose=False, ref_channe
     # Get reference electrode index
     ref = mne.pick_channels(raw.info['ch_names'], [ref_channel])[0]
     # Apply reference electrode coordinates to other electrodes ref coords
+    # Useful for mne FASTER bad channel detection
     for ch in picks:
         raw.info['chs'][ch]['loc'][3:6] = raw.info['chs'][ref]['loc'][:3]
-    # Get events from annotations
+    # Get event information from annotations
     events = mne.events_from_annotations(raw)
 
     if verbose:
@@ -45,6 +49,9 @@ def read_stephens_data(header_path, montage_path=None, verbose=False, ref_channe
     return raw, events, picks
 
 if '__main__' in __name__:
-
-    read_stephens_data('/Users/lyndonrakusen/Documents/Data/OSF Uploads for Lyndon/EEG_Attentional_Template_SSM_NCI_Experiment1_K99_40/SSM_EEG/SID1.vhdr',
-                   verbose=True)
+    wd = Path('/Users/lyndonrakusen/Documents/Data/OSF Uploads for '
+                       'Lyndon/EEG_Attentional_Template_SSM_NCI_Experiment1_K99_40/SSM_EEG/')
+    header_paths = wd.glob('*.vhdr')
+    for path in header_paths:
+        read_stephens_data(path, verbose=True)
+        quit()

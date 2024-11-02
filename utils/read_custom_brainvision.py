@@ -15,10 +15,10 @@ def read_stephens_data(header_path, montage_path=None, ref_channel='Cz', verbose
     @return: raw data, events, channel information
     """
     # If an eeg data file doesn't load via the header file there's a chance that a file has been moved and renamed
-    raw = io.read_raw_brainvision(header_path, preload=True)
-    raw.set_channel_types({'VEOG': 'eog', 'Photo': 'misc'})
+    raw = io.read_raw_brainvision(header_path, preload=True, verbose=verbose)
+    raw.set_channel_types({'VEOG': 'eog', 'Photo': 'misc'}, verbose=verbose)
     # In the custom montage the equivalent of PO2 was mysteriously named P20...
-    mne.channels.rename_channels(raw.info, {'P20': 'PO2'})
+    mne.channels.rename_channels(raw.info, {'P20': 'PO2'}, verbose=verbose)
     # When recording one electrode is used as a reference.
     # Add that channel back with values of 0,
     # so that when we that change the reference later we get all that data back
@@ -33,13 +33,13 @@ def read_stephens_data(header_path, montage_path=None, ref_channel='Cz', verbose
     # Get EEG and EOG channels
     picks = mne.pick_types(raw.info, eeg=True, eog=True)
     # Get reference electrode index
-    ref = mne.pick_channels(raw.info['ch_names'], [ref_channel])[0]
+    ref = mne.pick_channels(raw.info['ch_names'], [ref_channel], verbose=verbose)[0]
     # Apply reference electrode coordinates to other electrodes ref coords
     # Useful for mne FASTER bad channel detection
     for ch in picks:
         raw.info['chs'][ch]['loc'][3:6] = raw.info['chs'][ref]['loc'][:3]
     # Get event information from annotations
-    events = mne.events_from_annotations(raw)
+    events = mne.events_from_annotations(raw, verbose=verbose)
 
     if verbose:
         print(raw.info)
